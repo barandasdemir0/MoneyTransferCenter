@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/Src/">
+    <Project Path="Src/MoneyTransferCenter.Application/MoneyTransferCenter.Application.csproj" Id="af0c70f9-4fd2-4bf7-8a25-6c848c9da3ba" />
+    <Project Path="Src/MoneyTransferCenter.Domain/MoneyTransferCenter.Domain.csproj" />
+    <Project Path="Src/MoneyTransferCenter.Infrastructure/MoneyTransferCenter.Infrastructure.csproj" Id="57b9497a-8809-45f5-958b-43290cd7482f" />
+    <Project Path="Src/MoneyTransferCenter.WebAPI/MoneyTransferCenter.WebAPI.csproj" Id="1b415cff-541b-4e77-87c6-a71390029694" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/MoneyTransferCenter.IntegrationTests/MoneyTransferCenter.IntegrationTests.csproj" Id="d79ff136-5896-4f57-876d-1aa91c44cce8" />
+    <Project Path="Tests/MoneyTransferCenter.UnitTests/MoneyTransferCenter.UnitTests.csproj" Id="5bf4c363-1c80-40a9-a062-4ea545710bdd" />
+  </Folder>
+</Solution>
