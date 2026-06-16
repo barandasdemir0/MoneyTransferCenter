@@ -11,7 +11,7 @@ public sealed class Transaction:BaseEntity
     public decimal Amount { get; private init; } //tutar
     public string? Description { get; private init; } //açıklama
     public string ReferenceNumber { get; private init; } = string.Empty; // Benzersiz transfer referans numarası
-    public TransactionStatus Status { get; private set; }
+    public TransactionStatus Status { get; private set; } = TransactionStatus.Pending;
     public DateTimeOffset? CompletedAt { get; private set; }
     public string? FailureReason { get; private set; } //hata ise sebebi
 
