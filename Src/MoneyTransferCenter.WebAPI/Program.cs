@@ -1,36 +1,50 @@
 using Microsoft.EntityFrameworkCore;
-using MoneyTransferCenter.Application.Interfaces;
 using MoneyTransferCenter.Infrastructure.Data;
 using MoneyTransferCenter.WebAPI.Extension;
 using Scalar.AspNetCore;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+LoggingExtension.AddConsoleLogger();
 
-builder.Services.AddDbContext<AppDbContext>(configurations =>
+try
 {
-    configurations.UseSqlServer(builder.Configuration.GetConnectionString("SqlServer"));
-});
-builder.Services.AddOpenApi();
+    Log.Information("Uygulama başlatılıyor...");
 
-builder.Services.AddScoped<ICurrentUserService, FakeCurrentService>();
+    var builder = WebApplication.CreateBuilder(args);
 
-var app = builder.Build();
+    builder.AddLogConfig();
 
+    builder.Services.AddDatabaseConfig(builder.Configuration);
+    builder.Services.AddOpenApi();
+    builder.Services.AddApplicationServices();
+    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+    var app = builder.Build();
+
+    app.UseExceptionHandler();
+    if (app.Environment.IsDevelopment())
+    {
+        app.MapOpenApi();
+        app.MapScalarApiReference();
+    }
+
+    app.UseSerilogRequestLogging();
+
+    app.MapGet("/", () => "Hello World!");
+
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        context.Database.Migrate();
+    }
+
+    app.Run();
 }
-
-app.MapGet("/", () => "Hello World!");
-
-
-
-using (var scope = app.Services.CreateScope())
+catch (Exception ex)
 {
-    var services = scope.ServiceProvider;
-    var context = services.GetRequiredService<AppDbContext>();
-    context.Database.Migrate();
+    Log.Fatal(ex, "Uygulama başlatılırken kritik hata oluştu!");
 }
-app.Run();
+finally
+{
+    Log.CloseAndFlush();
+}
