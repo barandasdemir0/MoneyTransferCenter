@@ -10,7 +10,7 @@ public sealed class Account : BaseEntity
     public string IBAN { get; private init; } = string.Empty;
 
     public decimal Balance { get; private set; }
-    public AccountStatus Status { get; private set; }
+    public AccountStatus Status { get; private set; } = AccountStatus.Passive;
 
     // Profil bilgileri (aktivasyon için gerekli)
     public string? Address { get; private set; }
@@ -31,7 +31,7 @@ public sealed class Account : BaseEntity
 
     private Account() { }
     // Yeni hesap oluşturma constructor'ı
-    public Account(Guid userId, string iban)
+    public Account(Guid userId, string iban,string telephone)
     {
         UserId = userId;
         IBAN = iban;

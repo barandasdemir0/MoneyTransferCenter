@@ -1,5 +1,6 @@
 ﻿using MoneyTransferCenter.Domain.Common;
 using MoneyTransferCenter.Domain.Enums;
+using MoneyTransferCenter.Domain.Exceptions;
 
 namespace MoneyTransferCenter.Domain.Entities;
 
@@ -24,6 +25,15 @@ public sealed class Transaction:BaseEntity
     // Factory method: Yeni transfer oluşturur
     public static Transaction Create(Guid senderAccountId, Guid receiverAccountId, decimal amount, string? description = null)
     {
+        if (amount <= 0)
+        {
+            throw new DomainException("Transfer tutarı sıfırdan büyük olmalıdır.", "INVALID_AMOUNT");
+        }
+           
+        if (senderAccountId == receiverAccountId)
+        {
+            throw new DomainException("Kendi hesabınıza transfer yapamazsınız.", "SELF_TRANSFER");
+        }   
         return new Transaction
         {
             SenderAccountId = senderAccountId,
