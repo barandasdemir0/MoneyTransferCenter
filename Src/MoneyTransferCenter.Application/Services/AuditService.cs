@@ -14,6 +14,39 @@ public sealed class AuditService : IAuditService
         _auditLogRepository = auditLogRepository;
         _logger = logger;
     }
+
+    public async Task LogAccountActivatedAsync(Guid userId)
+    {
+        AuditLog log = new AuditLog
+        {
+            UserId = userId,
+            Action = "AccountActivated",
+            EntityType = "Account",
+            EntityId = userId.ToString(),
+            Timestamp = DateTimeOffset.UtcNow,
+            OldValue = null,
+            NewValue = "Hesap aktifleştirildi."
+        };
+        await _auditLogRepository.AddAsync(log);
+        _logger.LogInformation("AuditLog: {Action}, UserId: {UserId}", log.Action, userId);
+    }
+
+    public async Task LogAccountCreatedAsync(Guid userId, string iban)
+    {
+        AuditLog log = new AuditLog
+        {
+            UserId = userId,
+            Action = "AccountCreated",
+            EntityType = "Account",
+            EntityId = iban,
+            Timestamp = DateTimeOffset.UtcNow,
+            OldValue = null,
+            NewValue = $"Hesap oluşturuldu. IBAN: {iban}"
+        };
+        await _auditLogRepository.AddAsync(log);
+        _logger.LogInformation("AuditLog: {Action}, UserId: {UserId}, IBAN: {IBAN}", log.Action, userId, iban);
+    }
+
     public async Task LogLoginFailedAsync(AppUser user, string reason)
     {
         AuditLog log = new AuditLog
@@ -28,6 +61,22 @@ public sealed class AuditService : IAuditService
         };
         await _auditLogRepository.AddAsync(log);
         _logger.LogWarning("AuditLog yazıldı: {Action}, UserId: {UserId}, Sebep: {Reason}", log.Action, user.Id, reason);
+    }
+
+    public async Task LogProfileCompletedAsync(Guid userId)
+    {
+        AuditLog log = new AuditLog
+        {
+            UserId = userId,
+            Action = "ProfileCompleted",
+            EntityType = "AppUser",
+            EntityId = userId.ToString(),
+            Timestamp = DateTimeOffset.UtcNow,
+            OldValue = null,
+            NewValue = "Profil bilgileri tamamlandı."
+        };
+        await _auditLogRepository.AddAsync(log);
+        _logger.LogInformation("AuditLog: {Action}, UserId: {UserId}", log.Action, userId);
     }
 
     public async Task LogUserLoggedInAsync(AppUser user)

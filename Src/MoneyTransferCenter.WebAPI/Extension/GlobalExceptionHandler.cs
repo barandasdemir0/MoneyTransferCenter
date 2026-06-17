@@ -25,7 +25,7 @@ public class GlobalExceptionHandler : IExceptionHandler
         {
             StatusCode = 500,
 
-            Message = "Bir hata oluştu. Lütfen daha sonra tekrar deneyiniz."
+            Message = exception.Message
         }, cancellationToken);
 
 

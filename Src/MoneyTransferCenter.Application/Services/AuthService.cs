@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyTransferCenter.Application.Dtos.Auth;
 using MoneyTransferCenter.Application.Interfaces;
@@ -11,17 +12,20 @@ public sealed class AuthService : IAuthService
     private readonly UserManager<AppUser> _userManager;
     private readonly ITokenService _tokenService;
     private readonly IAuditService _auditService;
+    private readonly IAccountService _accountService;
     private readonly ILogger<AuthService> _logger;
     public AuthService(
         UserManager<AppUser> userManager,
         ITokenService tokenService,
         IAuditService auditService,
-        ILogger<AuthService> logger)
+        ILogger<AuthService> logger,
+        IAccountService accountService)
     {
         _userManager = userManager;
         _tokenService = tokenService;
         _auditService = auditService;
         _logger = logger;
+        _accountService = accountService;
     }
     public async Task<AuthResponse> LoginAsync(LoginRequestDto request)
     {
@@ -45,6 +49,8 @@ public sealed class AuthService : IAuthService
         // 3) Başarılı giriş logla
         await _auditService.LogUserLoggedInAsync(user);
 
+        
+
         //Token oluştur
         string token = _tokenService.GenerateToken(user);
         _logger.LogInformation("Giriş başarılı. UserId: {UserId}", user.Id);
@@ -57,7 +63,7 @@ public sealed class AuthService : IAuthService
             UserId = user.Id
         };
     }
-    
+
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequestDto request)
     {
@@ -71,7 +77,14 @@ public sealed class AuthService : IAuthService
             throw new Exception("Bu e-posta adresi zaten kayıtlı.");
         }
 
-        
+        AppUser? existingNationalId = await _userManager.Users.FirstOrDefaultAsync(x => x.NationalId == request.NationalId);
+        if (existingNationalId != null)
+        {
+            _logger.LogWarning("Kayıt reddedildi. Tc Kimlik numarası zaten kayıtlı: {NationalId}", request.NationalId);
+            throw new Exception("Tc Kimlik numarası zaten kayıtlı.");
+        }
+
+
         AppUser newUser = new AppUser
         {
             FirstName = request.FirstName,
@@ -89,6 +102,11 @@ public sealed class AuthService : IAuthService
             _logger.LogError("Kayıt hatası. E-posta: {Email}, Hatalar: {Errors}", request.Email, errors);
             throw new Exception($"Kayıt başarısız: {errors}");
         }
+
+       
+
+        await _accountService.CreateAccountForUserAsync(newUser.Id);
+
 
         _logger.LogInformation("Kullanıcı oluşturuldu. UserId: {UserId}", newUser.Id);
         //Audit log yaz 

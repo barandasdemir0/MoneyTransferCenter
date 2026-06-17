@@ -1,16 +1,20 @@
 ﻿using FluentValidation;
+using Mapster;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MoneyTransferCenter.Application.Dtos.Mappings;
 using MoneyTransferCenter.Application.Interfaces;
 using MoneyTransferCenter.Application.Services;
 using MoneyTransferCenter.Domain.Entities;
+using MoneyTransferCenter.Domain.Interfaces;
 using MoneyTransferCenter.Domain.Interfaces.Repositories;
 using MoneyTransferCenter.Infrastructure.Data;
 using MoneyTransferCenter.Infrastructure.MongoDB;
 using MoneyTransferCenter.Infrastructure.Repositories;
 using MoneyTransferCenter.Infrastructure.Services;
+using MoneyTransferCenter.Infrastructure.UnitOfWork;
 using MoneyTransferCenter.WebAPI.Services;
 using Serilog;
 using Serilog.Events;
@@ -40,7 +44,11 @@ public static class ServiceRegistrationExtension
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
-       
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IAccountRepository, AccountRepository>();
+        services.AddScoped<IAccountService, AccountService>();
+        services.AddScoped<IIbanGenerator, IbanGenerator>();
+
 
         services.AddValidatorsFromAssemblyContaining<IAuthService>();
         // Controllers + ValidationFilter
@@ -49,8 +57,12 @@ public static class ServiceRegistrationExtension
             options.Filters.Add<ValidationFilter>();
         });
 
+        TypeAdapterConfig.GlobalSettings.Scan(typeof(AccountMapping).Assembly);
+
         return services;
     }
+
+ 
 
     public static void AddIdentityConfig(this IServiceCollection services, IConfiguration configuration)
     {

@@ -4,7 +4,7 @@ using MoneyTransferCenter.Domain.Exceptions;
 
 namespace MoneyTransferCenter.Domain.Entities;
 
-public sealed class Account : BaseEntity
+public class Account : BaseEntity
 {
     public Guid UserId { get; private init; }
     public string IBAN { get; private init; } = string.Empty;
@@ -31,7 +31,7 @@ public sealed class Account : BaseEntity
 
     private Account() { }
     // Yeni hesap oluşturma constructor'ı
-    public Account(Guid userId, string iban,string telephone)
+    public Account(Guid userId, string iban)
     {
         UserId = userId;
         IBAN = iban;
@@ -90,6 +90,34 @@ public sealed class Account : BaseEntity
         Status = AccountStatus.Active;
     }
 
+    
+    public void UpdateProfile(string address, string city, string postalCode, string telephoneNumber)
+    {
+        if (Status.CanModify() == false)
+        {
+            throw new DomainException("Kapatılmış hesap üzerinde değişiklik yapılamaz.", "ACCOUNT_CLOSED");
+        }
+        Address = address;
+        City = city;
+        PostalCode = postalCode;
+        TelephoneNumber = telephoneNumber;
+    }
+    public bool IsProfileComplete()
+    {
+        return string.IsNullOrEmpty(Address) == false
+            && string.IsNullOrEmpty(City) == false
+            && string.IsNullOrEmpty(PostalCode) == false
+            && string.IsNullOrEmpty(TelephoneNumber) == false;
+    }
+
+    public void Activate()
+    {
+        if (Status.CanBeActivated() == false)
+        {
+            throw new DomainException("Hesap aktif edilemez.", "ACCOUNT_CANNOT_BE_ACTIVATED");
+        }
+        Status = AccountStatus.Active;
+    }
     public void Close()
     {
         if (Balance != 0)
