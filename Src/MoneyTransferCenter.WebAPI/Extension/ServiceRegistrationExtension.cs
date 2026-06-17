@@ -50,6 +50,7 @@ public static class ServiceRegistrationExtension
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IIbanGenerator, IbanGenerator>();
         services.AddScoped<ITransactionService, TransactionService>();
+        services.AddScoped<ITransactionRepository, TransactionRepository>();
         services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
         services.AddHostedService<OutboxProcessor>();
 

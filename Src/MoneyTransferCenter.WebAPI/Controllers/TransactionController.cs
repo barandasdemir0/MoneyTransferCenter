@@ -24,4 +24,13 @@ public class TransactionController : ControllerBase
         DepositResponseDto response = await _transactionService.DepositAsync(userId, request);
         return Ok(response);
     }
+
+
+    [HttpPost("transfer")]
+    public async Task<IActionResult> Transfer([FromBody] TransferRequestDto request)
+    {
+        Guid userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        TransferResponseDto response = await _transactionService.TransferAsync(userId, request);
+        return Ok(response);
+    }
 }

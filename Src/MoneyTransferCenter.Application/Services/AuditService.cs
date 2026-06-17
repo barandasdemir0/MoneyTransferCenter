@@ -86,6 +86,59 @@ public sealed class AuditService : IAuditService
             amount);
     }
 
+    public async Task LogMoneyDepositFailedAsync(Guid userId, decimal amount, string reason)
+    {
+        AuditLog log = new AuditLog
+        {
+            UserId = userId,
+            Action = "MoneyDepositFailed",
+            EntityType = "Account",
+            EntityId = userId.ToString(),
+            Timestamp = DateTimeOffset.UtcNow,
+            OldValue = null,
+            NewValue = $"Para yatırma başarısız. Tutar: {amount}, Sebep: {reason}"
+        };
+
+        await _auditLogRepository.AddAsync(log);
+    }
+
+    public async Task LogMoneyTransferFailedAsync(Guid userId, string? senderIban, string receiverIban, decimal amount, string reason)
+    {
+        AuditLog log = new AuditLog
+        {
+            UserId = userId,
+            Action = "MoneyTransferFailed",
+            EntityType = "Transaction",
+            EntityId = userId.ToString(),
+            Timestamp = DateTimeOffset.UtcNow,
+            OldValue = null,
+            NewValue = $"Transfer başarısız. Gönderen: {senderIban ?? "Bilinmiyor"}, Alıcı: {receiverIban}, Tutar: {amount}, Sebep: {reason}"
+        };
+
+        await _auditLogRepository.AddAsync(log);
+    }
+
+    public async Task LogMoneyTransferredAsync(Guid senderUserId, Guid senderAccountId, string senderIban, string receiverIban, decimal amount)
+    {
+        AuditLog log = new AuditLog
+        {
+            UserId = senderUserId,
+            Action = "MoneyTransferred",
+            EntityType = "Transaction",
+            EntityId = senderAccountId.ToString(),
+            Timestamp = DateTimeOffset.UtcNow,
+            OldValue = null,
+            NewValue = $"Gönderen: {senderIban}, Alıcı: {receiverIban}, Tutar: {amount}"
+        };
+
+        await _auditLogRepository.AddAsync(log);
+
+        _logger.LogInformation(
+            "AuditLog yazıldı: {Action}, UserId: {UserId}",
+            log.Action,
+            senderUserId);
+    }
+
     public async Task LogProfileCompletedAsync(Guid userId)
     {
         AuditLog log = new AuditLog
