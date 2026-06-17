@@ -63,6 +63,29 @@ public sealed class AuditService : IAuditService
         _logger.LogWarning("AuditLog yazıldı: {Action}, UserId: {UserId}, Sebep: {Reason}", log.Action, user.Id, reason);
     }
 
+    public async Task LogMoneyDepositedAsync(Guid userId, Guid accountId, string iban, decimal amount, decimal newBalance)
+    {
+        AuditLog log = new AuditLog
+        {
+            UserId = userId,
+            Action = "MoneyDeposited",
+            EntityType = "Account",
+            EntityId = accountId.ToString(),
+            Timestamp = DateTimeOffset.UtcNow,
+            OldValue = null,
+            NewValue = $"Para yatırıldı. IBAN: {iban}, Tutar: {amount}, Yeni bakiye: {newBalance}"
+        };
+
+        await _auditLogRepository.AddAsync(log);
+
+        _logger.LogInformation(
+            "AuditLog: {Action}, UserId: {UserId}, AccountId: {AccountId}, Amount: {Amount}",
+            log.Action,
+            userId,
+            accountId,
+            amount);
+    }
+
     public async Task LogProfileCompletedAsync(Guid userId)
     {
         AuditLog log = new AuditLog

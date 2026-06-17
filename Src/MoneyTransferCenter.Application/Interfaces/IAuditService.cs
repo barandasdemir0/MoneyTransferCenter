@@ -11,4 +11,6 @@ public interface IAuditService
     Task LogProfileCompletedAsync(Guid userId);
     Task LogAccountActivatedAsync(Guid userId);
 
+    Task LogMoneyDepositedAsync(Guid userId, Guid accountId, string iban, decimal amount, decimal newBalance);
+
 }

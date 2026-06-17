@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using MoneyTransferCenter.Application.Dtos.Mappings;
 using MoneyTransferCenter.Application.Interfaces;
 using MoneyTransferCenter.Application.Services;
+using MoneyTransferCenter.Application.Validators.Transaction;
 using MoneyTransferCenter.Domain.Entities;
 using MoneyTransferCenter.Domain.Interfaces;
 using MoneyTransferCenter.Domain.Interfaces.Repositories;
@@ -48,6 +49,9 @@ public static class ServiceRegistrationExtension
         services.AddScoped<IAccountRepository, AccountRepository>();
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IIbanGenerator, IbanGenerator>();
+        services.AddScoped<ITransactionService, TransactionService>();
+
+
 
 
         services.AddValidatorsFromAssemblyContaining<IAuthService>();
