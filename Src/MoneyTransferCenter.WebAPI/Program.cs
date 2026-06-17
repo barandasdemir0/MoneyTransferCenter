@@ -4,7 +4,8 @@ using MoneyTransferCenter.WebAPI.Extension;
 using Scalar.AspNetCore;
 using Serilog;
 
-LoggingExtension.AddConsoleLogger();
+// Serilog yapılandırması
+LoggingExtension.AddConsoleLogger(); 
 
 try
 {
@@ -15,9 +16,12 @@ try
     builder.AddLogConfig();
 
     builder.Services.AddDatabaseConfig(builder.Configuration);
+    builder.Services.AddIdentityConfig(builder.Configuration);
+  
+    builder.Services.AddApplicationServices(); 
     builder.Services.AddOpenApi();
-    builder.Services.AddApplicationServices();
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+    builder.Services.AddProblemDetails();
 
     var app = builder.Build();
 
@@ -29,6 +33,10 @@ try
     }
 
     app.UseSerilogRequestLogging();
+
+    app.UseAuthentication();
+    app.UseAuthorization();
+    app.MapControllers();
 
     app.MapGet("/", () => "Hello World!");
 

@@ -23,7 +23,7 @@ public class GlobalExceptionHandler : IExceptionHandler
 
         await httpContext.Response.WriteAsJsonAsync(new
         {
-            StatusCode = httpContext.Response.StatusCode,
+            StatusCode = 500,
 
             Message = "Bir hata oluştu. Lütfen daha sonra tekrar deneyiniz."
         }, cancellationToken);

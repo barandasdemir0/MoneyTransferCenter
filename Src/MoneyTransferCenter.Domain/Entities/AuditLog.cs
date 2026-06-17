@@ -31,6 +31,7 @@ public sealed class AuditLog
     public string EntityId { get; set; } = string.Empty;
 
 
+    // bir değişiklik yapıldığında eski ve yeni değerleri saklamaktır. Örneğin, bir kullanıcının e-posta adresi değiştirildiğinde, eski e-posta adresi "OldValue" alanında, yeni e-posta adresi ise "NewValue" alanında saklanır.
     [BsonElement("oldValue")]
     public string? OldValue { get; set; }
 
