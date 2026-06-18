@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\Src\MoneyTransferCenter.Application\MoneyTransferCenter.Application.csproj" />
     <ProjectReference Include="..\..\Src\MoneyTransferCenter.Domain\MoneyTransferCenter.Domain.csproj" />
     <ProjectReference Include="..\..\Src\MoneyTransferCenter.Infrastructure\MoneyTransferCenter.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Src\MoneyTransferCenter.WebAPI\MoneyTransferCenter.WebAPI.csproj" />
   </ItemGroup>
 
   <ItemGroup>
