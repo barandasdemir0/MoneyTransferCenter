@@ -9,4 +9,7 @@
     <Project Path="Tests/MoneyTransferCenter.IntegrationTests/MoneyTransferCenter.IntegrationTests.csproj" Id="d79ff136-5896-4f57-876d-1aa91c44cce8" />
     <Project Path="Tests/MoneyTransferCenter.UnitTests/MoneyTransferCenter.UnitTests.csproj" Id="5bf4c363-1c80-40a9-a062-4ea545710bdd" />
   </Folder>
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
 </Solution>

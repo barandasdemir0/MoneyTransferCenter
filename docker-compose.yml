@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # 1. SİZİN API PROJENİZ
+  moneytransfercenter.webapi:
+    image: ${DOCKER_REGISTRY-}moneytransfercenterwebapi
+    build:
+      context: .
+      dockerfile: Src/MoneyTransferCenter.WebAPI/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      # appsettings.json ayarlarını eziyoruz ki Docker içindeki diğer araçlara bağlansın
+      - ConnectionStrings__SqlServer=Server=db_sqlserver;Database=MoneyTransferCenterDb;User Id=sa;Password=Guc1u_Sifre.123;TrustServerCertificate=true
+      - MongoDB__ConnectionString=mongodb://db_mongodb:27017
+      - Jaeger__Endpoint=http://jaeger:4317
+    depends_on:
+      - db_sqlserver
+      - db_mongodb
+      - jaeger
+
+  # 2. MICROSOFT SQL SERVER
+  db_sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Guc1u_Sifre.123
+    ports:
+      - "1433:1433"
+
+  # 3. MONGODB
+  db_mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+
+  # 4. JAEGER OPENTELEMETRY
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686" # Arayüz portu
+      - "4317:4317"   # Log toplama portu
