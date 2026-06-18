@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MoneyTransferCenter.Application.Dtos.Transaction;
 using MoneyTransferCenter.Application.Interfaces;
 using System.Security.Claims;
@@ -7,6 +8,7 @@ namespace MoneyTransferCenter.WebAPI.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize]
 public class TransactionController : ControllerBase
 {
     private readonly ITransactionService _transactionService;

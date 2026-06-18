@@ -25,51 +25,19 @@ namespace MoneyTransferCenter.WebAPI.Extension;
 
 public static class ServiceRegistrationExtension
 {
-    public static  void AddDatabaseConfig(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddWebApiServices(this IServiceCollection services, IConfiguration configuration)
     {
-        
-        services.AddDbContext<AppDbContext>(configurations =>
-        {
-            configurations.UseSqlServer(configuration.GetConnectionString("SqlServer"));
-        });
-
-        services.AddSingleton<MongoDbContext>();
-    }
-
-    public static IServiceCollection AddApplicationServices(
-        this IServiceCollection services)
-    {
+       
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
-        services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<ITokenService, TokenService>();
-        services.AddScoped<IAuditService, AuditService>();
-        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
-        services.AddScoped<IUnitOfWork, UnitOfWork>();
-        services.AddScoped<IAccountRepository, AccountRepository>();
-        services.AddScoped<IAccountService, AccountService>();
-        services.AddScoped<IIbanGenerator, IbanGenerator>();
-        services.AddScoped<ITransactionService, TransactionService>();
-        services.AddScoped<ITransactionRepository, TransactionRepository>();
-        services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
-        services.AddHostedService<OutboxProcessor>();
-
-
-
-
-
-
-        services.AddValidatorsFromAssemblyContaining<IAuthService>();
-        // Controllers + ValidationFilter
+   
         services.AddControllers(options =>
         {
             options.Filters.Add<ValidationFilter>();
         });
-
-        TypeAdapterConfig.GlobalSettings.Scan(typeof(AccountMapping).Assembly);
-
         return services;
     }
+
 
  
 

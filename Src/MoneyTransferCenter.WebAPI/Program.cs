@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using MoneyTransferCenter.Application;
+using MoneyTransferCenter.Infrastructure;
 using MoneyTransferCenter.Infrastructure.Data;
 using MoneyTransferCenter.WebAPI.Extension;
 using Scalar.AspNetCore;
@@ -15,10 +17,15 @@ try
 
     builder.AddLogConfig();
 
-    builder.Services.AddDatabaseConfig(builder.Configuration);
+    //Infrastructure servisleri
+    builder.Services.AddInfrastructureServices(builder.Configuration);
+    //Application servisleri 
+    builder.Services.AddApplicationServices();
+    // WebAPI'ye özel servisler
+    builder.Services.AddWebApiServices(builder.Configuration);
+    //  Kimlik Doğrulama 
     builder.Services.AddIdentityConfig(builder.Configuration);
-  
-    builder.Services.AddApplicationServices(); 
+
     builder.Services.AddOpenApi();
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
     builder.Services.AddProblemDetails();
@@ -38,7 +45,6 @@ try
     app.UseAuthorization();
     app.MapControllers();
 
-    app.MapGet("/", () => "Hello World!");
 
     using (var scope = app.Services.CreateScope())
     {
