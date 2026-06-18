@@ -85,14 +85,11 @@ public sealed class AccountService : IAccountService
         await _accountRepository.AddAsync(newAccount);
         await _unitOfWork.SaveChangesAsync();
         await _auditService.LogAccountCreatedAsync(userId, iban);
-        Account? createdAccount = await _accountRepository.GetByUserIdAsync(userId);
 
-        if (createdAccount is null)
-        {
-            throw new Exception("Hesap oluşturuldu fakat tekrar okunamadı.");
-        }
         _logger.LogInformation("Hesap oluşturuldu. UserId: {UserId}, IBAN: {IBAN}", userId, iban);
-        return createdAccount.Adapt<AccountResponseDto>();
+        return newAccount.Adapt<AccountResponseDto>();
+
+       
     }
 
     public async Task<List<UserListItemResponseDto>> GetAllUsersAsync()

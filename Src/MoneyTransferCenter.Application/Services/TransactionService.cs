@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using MoneyTransferCenter.Application.Dtos.Transaction;
 using MoneyTransferCenter.Application.Interfaces;
+using MoneyTransferCenter.Domain.Constants;
 using MoneyTransferCenter.Domain.Entities;
 using MoneyTransferCenter.Domain.Enums;
 using MoneyTransferCenter.Domain.Exceptions;
@@ -40,7 +41,7 @@ public sealed class TransactionService : ITransactionService
 
             if (account == null)
             {
-                throw new Exception("Hesap bulunamadı.");
+                throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
             }
 
             await _unitOfWork.BeginTransactionAsync();
@@ -56,22 +57,16 @@ public sealed class TransactionService : ITransactionService
             string payload = JsonSerializer.Serialize(new
             {
                 AccountId = account.Id,
-                IBAN = account.IBAN,
-                Amount = request.Amount,
+                account.IBAN,
+                request.Amount,
                 NewBalance = account.Balance,
                 OccurredAt = DateTimeOffset.UtcNow
             });
 
-            await _outboxMessageRepository.AddAsync(OutboxMessage.Create("DepositCompleted", payload));
+            await _outboxMessageRepository.AddAsync(OutboxMessage.Create(OutboxEventTypes.DepositCompleted, payload));
             await _unitOfWork.CommitTransactionAsync();
 
-            await _auditService.LogMoneyDepositedAsync(
-                    userId,
-                account.Id,
-                account.IBAN,
-                    request.Amount,
-                    account.Balance);
-            _logger.LogInformation("Para yüklendi. IBAN: {IBAN}, Yeni Bakiye: {Balance}", account.IBAN, account.Balance);
+         
 
             return new DepositResponseDto(
                 AccountId: account.Id,
@@ -139,20 +134,21 @@ public sealed class TransactionService : ITransactionService
             senderAccount = await _accountRepository.GetByUserIdAsync(userId);
             if (senderAccount == null)
             {
-                throw new Exception("Gönderen hesabı bulunamadı.");
+                throw new DomainException("Gönderen hesabı bulunamadı.", "SENDER_NOT_FOUND");
+
             }
 
             // Alıcının hesabını bul
             Account? receiverAccount = await _accountRepository.GetByIbanAsync(request.ReceiverIBAN);
             if (receiverAccount == null)
             {
-                throw new Exception("Alıcı IBAN bulunamadı.");
+                throw new DomainException("Alıcı IBAN bulunamadı.", "RECEIVER_NOT_FOUND");
             }
 
             // Kendine transfer engeli
             if (senderAccount.Id == receiverAccount.Id)
             {
-                throw new Exception("Kendi hesabınıza transfer yapamazsınız.");
+                throw new DomainException("Kendi hesabınıza transfer yapamazsınız.", "SELF_TRANSFER_ERROR");
             }
 
             // Transfer kaydı oluştur (henüz Pending)
@@ -179,25 +175,21 @@ public sealed class TransactionService : ITransactionService
             string payload = JsonSerializer.Serialize(new
             {
                 TransactionId = transaction.Id,
-                ReferenceNumber = transaction.ReferenceNumber,
+                transaction.ReferenceNumber,
                 SenderAccountId = senderAccount.Id,
                 SenderIBAN = senderAccount.IBAN,
                 ReceiverAccountId = receiverAccount.Id,
                 ReceiverIBAN = receiverAccount.IBAN,
-                Amount = request.Amount,
-                Description = request.Description,
+                request.Amount,
+                request.Description,
                 OccurredAt = DateTimeOffset.UtcNow
             });
-            await _outboxMessageRepository.AddAsync(OutboxMessage.Create("TransferCompleted", payload));
+            await _outboxMessageRepository.AddAsync(OutboxMessage.Create(OutboxEventTypes.TransferCompleted, payload));
+
             // Hepsini atomik olarak commit et
             await _unitOfWork.CommitTransactionAsync();
             _logger.LogInformation("Transfer audit yazılacak. UserId: {UserId}", userId);
-            await _auditService.LogMoneyTransferredAsync(
-                userId,
-                senderAccount.Id,
-                senderAccount.IBAN,
-                receiverAccount.IBAN,
-                request.Amount);
+           
 
             _logger.LogInformation("Transfer tamamlandı. Referans:{Ref}", transaction.ReferenceNumber);
             return new TransferResponseDto(

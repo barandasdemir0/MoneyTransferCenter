@@ -103,14 +103,23 @@ public sealed class AuthService : IAuthService
             throw new Exception($"Kayıt başarısız: {errors}");
         }
 
-       
+        try
+        {
+            await _accountService.CreateAccountForUserAsync(newUser.Id);
+            _logger.LogInformation("Kullanıcı oluşturuldu. UserId: {UserId}", newUser.Id);
+            //Audit log yaz 
+            await _auditService.LogUserRegisteredAsync(newUser);
+        }
+        catch (Exception ex)
+        {
+            // Eğer hesap açılırken hata çıkarsa, Identity'e kaydettiğimiz kullanıcıyı GERİ SİLİYORUZ.
+            await _userManager.DeleteAsync(newUser);
+            _logger.LogError(ex, "Banka hesabı oluşturulurken hata çıktı. Kullanıcı kaydı iptal edildi. UserId: {UserId}", newUser.Id);
+            throw new Exception("Kayıt işlemi sırasında sistemsel bir hata oluştu. Lütfen tekrar deneyin.");
+        }
 
-        await _accountService.CreateAccountForUserAsync(newUser.Id);
 
-
-        _logger.LogInformation("Kullanıcı oluşturuldu. UserId: {UserId}", newUser.Id);
-        //Audit log yaz 
-        await _auditService.LogUserRegisteredAsync(newUser);
+      
         //Token oluştur 
         string token = _tokenService.GenerateToken(newUser);
         _logger.LogInformation("Kayıt tamamlandı. UserId: {UserId}", newUser.Id);
