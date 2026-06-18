@@ -16,6 +16,7 @@ using MoneyTransferCenter.Infrastructure.MongoDB;
 using MoneyTransferCenter.Infrastructure.Repositories;
 using MoneyTransferCenter.Infrastructure.Services;
 using MoneyTransferCenter.Infrastructure.UnitOfWork;
+using MoneyTransferCenter.WebAPI.Middlewares;
 using MoneyTransferCenter.WebAPI.Services;
 using Serilog;
 using Serilog.Events;
@@ -35,7 +36,14 @@ public static class ServiceRegistrationExtension
         {
             options.Filters.Add<ValidationFilter>();
         });
+
+
+
+        services.AddTransient<ReqAndResActivityBodyMiddleware>();
         return services;
+
+
+        
     }
 
 

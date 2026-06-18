@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using MoneyTransferCenter.Domain.Entities;
 using MongoDB.Driver;
+using MongoDB.Driver.Core.Extensions.DiagnosticSources;
 
 namespace MoneyTransferCenter.Infrastructure.MongoDB;
 
@@ -25,6 +26,10 @@ public class MongoDbContext
             // Varsayılan olarak projemizin ismini taşıyan veritabanını hedef alıyoruz.
             databaseName = "MoneyTransferCenterDb";
         }
+
+        //JAEGER İÇİN MONGO DB İZLEME AYARI 
+        var clientSettings = MongoClientSettings.FromConnectionString(connectionString);
+        clientSettings.ClusterConfigurator = cb => cb.Subscribe(new DiagnosticsActivityEventSubscriber());
         // 3. Adım: Elde ettiğimiz bağlantı adresiyle fiziksel bağlantıyı yönetecek olan MongoClient nesnesini oluşturuyoruz.
         MongoClient client = new MongoClient(connectionString);
         // 4. Adım: İstemci (client) üzerinden ilgili veritabanına bağlanıp, bağlantıyı sınıfımızın _database alanına kaydediyoruz.

@@ -3,6 +3,7 @@ using MoneyTransferCenter.Application;
 using MoneyTransferCenter.Infrastructure;
 using MoneyTransferCenter.Infrastructure.Data;
 using MoneyTransferCenter.WebAPI.Extension;
+using MoneyTransferCenter.WebAPI.Middlewares;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -25,7 +26,7 @@ try
     builder.Services.AddWebApiServices(builder.Configuration);
     //  Kimlik Doğrulama 
     builder.Services.AddIdentityConfig(builder.Configuration);
-
+    builder.Services.AddJaegerOpenTelemetry(builder.Configuration);
     builder.Services.AddOpenApi();
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
     builder.Services.AddProblemDetails();
@@ -38,12 +39,21 @@ try
         app.MapOpenApi();
         app.MapScalarApiReference();
     }
-
+    app.MapControllers();
     app.UseSerilogRequestLogging();
 
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
+
+    app.UseWhen(
+    context =>
+        context.Request.Path.StartsWithSegments("/api/Transaction") ||
+        context.Request.Path.StartsWithSegments("/api/Account"),
+    branch =>
+    {
+        branch.UseMiddleware<ReqAndResActivityBodyMiddleware>();
+    });
 
 
     using (var scope = app.Services.CreateScope())
