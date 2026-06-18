@@ -1,5 +1,5 @@
 ﻿using FluentValidation;
-using MoneyTransferCenter.Application.Dtos.Transaction;
+using MoneyTransferCenter.Application.Dtos.Transaction.Transfer;
 
 namespace MoneyTransferCenter.Application.Validators.Transaction;
 

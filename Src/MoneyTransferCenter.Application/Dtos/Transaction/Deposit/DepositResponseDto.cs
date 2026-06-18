@@ -1,4 +1,4 @@
-﻿namespace MoneyTransferCenter.Application.Dtos.Transaction;
+﻿namespace MoneyTransferCenter.Application.Dtos.Transaction.Deposit;
 
 public sealed record DepositResponseDto(
     Guid AccountId,

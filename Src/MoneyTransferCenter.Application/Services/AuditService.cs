@@ -31,6 +31,22 @@ public sealed class AuditService : IAuditService
         _logger.LogInformation("AuditLog: {Action}, UserId: {UserId}", log.Action, userId);
     }
 
+    public async Task LogAccountClosedAsync(Guid userId)
+    {
+        AuditLog log = new AuditLog
+        {
+            UserId = userId,
+            Action = "AccountClosed",
+            EntityType = "Account",
+            EntityId = userId.ToString(),
+            Timestamp = DateTimeOffset.UtcNow,
+            OldValue = "Active/Passive",
+            NewValue = "Hesap başarıyla kapatıldı."
+        };
+        await _auditLogRepository.AddAsync(log);
+        _logger.LogInformation("AuditLog: {Action}, UserId: {UserId}", log.Action, userId);
+    }
+
     public async Task LogAccountCreatedAsync(Guid userId, string iban)
     {
         AuditLog log = new AuditLog
@@ -137,6 +153,42 @@ public sealed class AuditService : IAuditService
             "AuditLog yazıldı: {Action}, UserId: {UserId}",
             log.Action,
             senderUserId);
+    }
+
+    public async Task LogMoneyWithdrawFailedAsync(Guid userId, decimal amount, string reason)
+    {
+        AuditLog log = new AuditLog
+        {
+            UserId = userId,
+            Action = "MoneyWithdrawFailed",
+            EntityType = "Account",
+            EntityId = userId.ToString(),
+            Timestamp = DateTimeOffset.UtcNow,
+            OldValue = null,
+            NewValue = $"Para çekme başarısız. Tutar: {amount}, Sebep: {reason}"
+        };
+        await _auditLogRepository.AddAsync(log);
+    }
+
+    public async Task LogMoneyWithdrawnAsync(Guid userId, Guid accountId, string iban, decimal amount, decimal newBalance)
+    {
+        AuditLog log = new AuditLog
+        {
+            UserId = userId,
+            Action = "MoneyWithdrawn",
+            EntityType = "Account",
+            EntityId = accountId.ToString(),
+            Timestamp = DateTimeOffset.UtcNow,
+            OldValue = null,
+            NewValue = $"Para çekildi. IBAN: {iban}, Tutar: {amount}, Yeni bakiye: {newBalance}"
+        };
+        await _auditLogRepository.AddAsync(log);
+        _logger.LogInformation(
+            "AuditLog: {Action}, UserId: {UserId}, AccountId: {AccountId}, Amount: {Amount}",
+            log.Action,
+            userId,
+            accountId,
+            amount);
     }
 
     public async Task LogProfileCompletedAsync(Guid userId)

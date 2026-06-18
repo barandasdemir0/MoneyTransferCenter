@@ -1,6 +1,6 @@
 ﻿using MoneyTransferCenter.Domain.Enums;
 
-namespace MoneyTransferCenter.Application.Dtos.Transaction;
+namespace MoneyTransferCenter.Application.Dtos.Transaction.History;
 
 public sealed record TransactionHistoryRequestDto
 {

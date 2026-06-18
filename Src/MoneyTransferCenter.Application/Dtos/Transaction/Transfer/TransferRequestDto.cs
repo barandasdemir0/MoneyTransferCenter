@@ -1,4 +1,4 @@
-﻿namespace MoneyTransferCenter.Application.Dtos.Transaction;
+﻿namespace MoneyTransferCenter.Application.Dtos.Transaction.Transfer;
 
 public record TransferRequestDto
 {

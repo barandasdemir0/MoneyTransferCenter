@@ -1,5 +1,5 @@
 ﻿using Mapster;
-using MoneyTransferCenter.Application.Dtos.Transaction;
+using MoneyTransferCenter.Application.Dtos.Transaction.History;
 
 namespace MoneyTransferCenter.Application.Dtos.Mappings;
 

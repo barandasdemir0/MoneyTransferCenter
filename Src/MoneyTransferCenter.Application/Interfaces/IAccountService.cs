@@ -8,4 +8,6 @@ public interface IAccountService
     Task<AccountResponseDto> CompleteProfileAsync(Guid userId, CompleteProfileRequestDto request);
     Task<AccountResponseDto> GetMyAccountAsync(Guid userId);
     Task<List<UserListItemResponseDto>> GetAllUsersAsync();
+    Task<string> CloseAccountAsync(Guid userId);
+
 }

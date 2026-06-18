@@ -25,12 +25,17 @@ public sealed class OutboxProcessor(IServiceScopeFactory scopeFactory,ILogger<Ou
             var auditRepo = scope.ServiceProvider.GetRequiredService<IAuditLogRepository>();
             // 5. UnitOfWork'ü al
             var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            // 1. İşlenmemiş mesajları getir
-            logger.LogInformation("OutboxProcessor başladı.");
+            
 
+            // 1. İşlenmemiş mesajları getir
             var pending = await outboxRepo.GetUnprocessedAsync();
 
-            logger.LogInformation("Outbox pending count: {Count}", pending.Count);
+            // SADECE bekleyen mesaj varsa log at! (Log kirliliğini önler)
+            if (pending.Count > 0)
+            {
+                logger.LogInformation("OutboxProcessor çalıştı. Pending count: {Count}", pending.Count);
+            }
+
             // 2. Mesajları sırayla MongoDB'ye at
             foreach (var msg in pending)
             {
@@ -55,8 +60,7 @@ public sealed class OutboxProcessor(IServiceScopeFactory scopeFactory,ILogger<Ou
                         string receiverIban = root.GetProperty("ReceiverIBAN").GetString()!;
                         decimal amount = root.GetProperty("Amount").GetDecimal();
 
-                        newValue =
-                            $"Transfer başarılı. Referans: {referenceNumber}, Gönderen: {senderIban}, Alıcı: {receiverIban}, Tutar: {amount}";
+                        newValue = $"Transfer başarılı. Referans: {referenceNumber}, Gönderen: {senderIban}, Alıcı: {receiverIban}, Tutar: {amount}";
                     }
                     else if (msg.Type == "DepositCompleted")
                     {
@@ -68,8 +72,20 @@ public sealed class OutboxProcessor(IServiceScopeFactory scopeFactory,ILogger<Ou
                         decimal amount = root.GetProperty("Amount").GetDecimal();
                         decimal newBalance = root.GetProperty("NewBalance").GetDecimal();
 
-                        newValue =
-                            $"Para yatırıldı. IBAN: {iban}, Tutar: {amount}, Yeni bakiye: {newBalance}";
+                        newValue = $"Para yatırıldı. IBAN: {iban}, Tutar: {amount}, Yeni bakiye: {newBalance}";
+                    }
+                    // YENİ EKLENEN PARA ÇEKME (WITHDRAW) OUTBOX EVENTİ
+                    else if (msg.Type == "WithdrawCompleted")
+                    {
+                        action = "MoneyWithdrawn";
+                        entityType = "Account";
+                        entityId = root.GetProperty("AccountId").GetString()!;
+
+                        string iban = root.GetProperty("IBAN").GetString()!;
+                        decimal amount = root.GetProperty("Amount").GetDecimal();
+                        decimal newBalance = root.GetProperty("NewBalance").GetDecimal();
+
+                        newValue = $"Para çekildi. IBAN: {iban}, Tutar: {amount}, Yeni bakiye: {newBalance}";
                     }
 
                     await auditRepo.AddAsync(new AuditLog
@@ -81,7 +97,7 @@ public sealed class OutboxProcessor(IServiceScopeFactory scopeFactory,ILogger<Ou
                         Timestamp = DateTimeOffset.UtcNow
                     });
 
-                    msg.MarkAsProcessed(); // EF Core değişikliği otomatik algılar
+                    msg.MarkAsProcessed();
                 }
                 catch (Exception ex)
                 {
@@ -89,6 +105,7 @@ public sealed class OutboxProcessor(IServiceScopeFactory scopeFactory,ILogger<Ou
                     logger.LogError(ex, "Outbox işlenemedi. Id: {Id}", msg.Id);
                 }
             }
+
             // 3. MSSQL'e değişiklikleri kaydet ve 10 saniye bekle
             if (pending.Any())
             {

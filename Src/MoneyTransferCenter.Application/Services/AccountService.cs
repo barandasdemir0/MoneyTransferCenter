@@ -30,6 +30,23 @@ public sealed class AccountService : IAccountService
         _unitOfWork = unitOfWork;
     }
 
+    public async Task<string> CloseAccountAsync(Guid userId)
+    {
+        _logger.LogInformation("Hesap kapatma işlemi başlatıldı. UserId: {UserId}", userId);
+        Account? account = await _accountRepository.GetByUserIdAsync(userId);
+        if (account == null)
+        {
+            throw new Exception("Hesap bulunamadı.");
+        }
+        // DDD kuralını çalıştırır
+        account.Close();
+        _accountRepository.Update(account);
+        await _unitOfWork.SaveChangesAsync();
+        await _auditService.LogAccountClosedAsync(userId);
+        _logger.LogInformation("Hesap başarıyla kapatıldı. UserId: {UserId}", userId);
+        return "Hesabınız başarıyla kapatılmıştır.";
+    }
+
     public async Task<AccountResponseDto> CompleteProfileAsync(Guid userId, CompleteProfileRequestDto request)
     {
         _logger.LogInformation("Profil tamamlanıyor. UserId: {UserId}", userId);

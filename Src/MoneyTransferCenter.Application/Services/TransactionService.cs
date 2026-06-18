@@ -1,6 +1,9 @@
 ﻿using Mapster;
 using Microsoft.Extensions.Logging;
-using MoneyTransferCenter.Application.Dtos.Transaction;
+using MoneyTransferCenter.Application.Dtos.Transaction.Deposit;
+using MoneyTransferCenter.Application.Dtos.Transaction.History;
+using MoneyTransferCenter.Application.Dtos.Transaction.Transfer;
+using MoneyTransferCenter.Application.Dtos.Transaction.WithDraw;
 using MoneyTransferCenter.Application.Interfaces;
 using MoneyTransferCenter.Domain.Constants;
 using MoneyTransferCenter.Domain.Entities;
@@ -215,6 +218,56 @@ public sealed class TransactionService : ITransactionService
                 request.Amount,
                 ex.Message);
 
+            throw;
+        }
+    }
+
+    public async Task<WithdrawResponseDto> WithdrawAsync(Guid userId, WithdrawRequestDto request)
+    {
+        try
+        {
+            _logger.LogInformation("Para çekme başlatıldı. UserId: {UserId}, Tutar: {Amount}", userId, request.Amount);
+
+            Account? account = await _accountRepository.GetByUserIdAsync(userId);
+            if (account == null)
+            {
+                throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
+            }
+
+            await _unitOfWork.BeginTransactionAsync();
+            // DDD ile para çek 
+            account.Withdraw(request.Amount);
+
+            _accountRepository.Update(account);
+           
+            string payload = JsonSerializer.Serialize(new
+            {
+                AccountId = account.Id,
+                account.IBAN,
+                request.Amount,
+                NewBalance = account.Balance,
+                OccurredAt = DateTimeOffset.UtcNow
+            });
+            await _outboxMessageRepository.AddAsync(OutboxMessage.Create(OutboxEventTypes.WithdrawCompleted, payload));
+
+            // İşlemleri MSSQL'e atomik olarak commit et
+            await _unitOfWork.CommitTransactionAsync();
+            return new WithdrawResponseDto(
+                AccountId: account.Id,
+                IBAN: account.IBAN,
+                NewBalance: account.Balance,
+                WithdrawnAmount: request.Amount,
+                TransactionDate: DateTimeOffset.UtcNow
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Para çekme başarısız. UserId: {UserId}", userId);
+            await _unitOfWork.RollbackTransactionAsync();
+            await _auditService.LogMoneyWithdrawFailedAsync(
+                userId,
+                request.Amount,
+                ex.Message);
             throw;
         }
     }

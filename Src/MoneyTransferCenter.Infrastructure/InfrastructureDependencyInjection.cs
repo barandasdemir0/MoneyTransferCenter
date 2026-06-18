@@ -18,7 +18,7 @@ public static class InfrastructureDependencyInjection
    
         services.AddDbContext<AppDbContext>(options =>
         {
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
+            options.UseSqlServer(configuration.GetConnectionString("SqlServer"));
         });
         services.AddSingleton<MongoDbContext>();
 

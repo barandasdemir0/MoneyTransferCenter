@@ -1,6 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MoneyTransferCenter.Application.Dtos.Transaction;
+using MoneyTransferCenter.Application.Dtos.Transaction.Deposit;
+using MoneyTransferCenter.Application.Dtos.Transaction.History;
+using MoneyTransferCenter.Application.Dtos.Transaction.Transfer;
+using MoneyTransferCenter.Application.Dtos.Transaction.WithDraw;
 using MoneyTransferCenter.Application.Interfaces;
 using System.Security.Claims;
 
@@ -42,5 +45,13 @@ public class TransactionController : ControllerBase
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var result = await _transactionService.GetHistoryAsync(userId, request);
         return Ok(result);
+    }
+
+    [HttpPost("withdraw")]
+    public async Task<IActionResult> Withdraw([FromBody] WithdrawRequestDto request)
+    {
+        Guid userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        WithdrawResponseDto response = await _transactionService.WithdrawAsync(userId, request);
+        return Ok(response);
     }
 }

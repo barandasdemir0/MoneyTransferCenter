@@ -50,6 +50,21 @@ public class AccountController : ControllerBase
         return Ok(result);
     }
 
+   
+    [HttpPost("close")]
+    public async Task<IActionResult> CloseAccount()
+    {
+        
+        Guid userId = GetCurrentUserId();
+
+        _logger.LogInformation("Kullanıcı hesap kapatma talebinde bulundu. UserId: {UserId}", userId);
+
+        string resultMessage = await _accountService.CloseAccountAsync(userId);
+
+        return Ok(new { Message = resultMessage });
+    }
+
+
     // JWT token'dan kullanıcı ID'sini oku
     private Guid GetCurrentUserId()
     {
@@ -60,4 +75,5 @@ public class AccountController : ControllerBase
         }
         return Guid.Parse(userIdString);
     }
+
 }
