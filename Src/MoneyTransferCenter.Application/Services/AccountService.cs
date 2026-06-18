@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using MoneyTransferCenter.Application.Dtos.Account;
 using MoneyTransferCenter.Application.Interfaces;
 using MoneyTransferCenter.Domain.Entities;
+using MoneyTransferCenter.Domain.Exceptions;
 using MoneyTransferCenter.Domain.Interfaces;
 using MoneyTransferCenter.Domain.Interfaces.Repositories;
 
@@ -36,13 +37,13 @@ public sealed class AccountService : IAccountService
         if (account == null)
         {
             _logger.LogWarning("Hesap bulunamadı. UserId: {UserId}", userId);
-            throw new Exception("Hesap bulunamadı.");
+            throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
         }
 
         if (account.Status.CanModify() == false)
         {
             _logger.LogWarning("Kapalı hesap güncellenemez. UserId: {UserId}", userId);
-            throw new Exception("Kapatılmış hesap üzerinde değişiklik yapılamaz.");
+            throw new DomainException("Kapatılmış hesap üzerinde değişiklik yapılamaz.", "ACCOUNT_CLOSED");
         }
 
         // DDD ile metodlarıyla profili güncelle
@@ -70,7 +71,7 @@ public sealed class AccountService : IAccountService
         if (existingAccount != null)
         {
             _logger.LogWarning("Kullanıcının zaten hesabı var. UserId: {UserId}", userId);
-            throw new Exception("Bu kullanıcının zaten bir hesabı bulunmaktadır.");
+            throw new DomainException("Bu kullanıcının zaten bir hesabı bulunmaktadır.", "ACCOUNT_ALREADY_EXISTS");
         }
 
         // Benzersiz IBAN üret
@@ -106,7 +107,7 @@ public sealed class AccountService : IAccountService
         Account? account = await _accountRepository.GetByUserIdAsync(userId);
         if (account == null)
         {
-            throw new Exception("Hesap bulunamadı.");
+            throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
         }
         return account.Adapt<AccountResponseDto>();
     }
