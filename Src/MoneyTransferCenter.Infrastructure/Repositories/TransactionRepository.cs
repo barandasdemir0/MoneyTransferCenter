@@ -18,8 +18,8 @@ public sealed class TransactionRepository : GenericRepository<Transaction>, ITra
             .OrderByDescending(t => t.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Include(t => t.SenderAccount)
-            .Include(t => t.ReceiverAccount)
+            .Include(t => t.SenderAccount).ThenInclude(a => a!.User)
+            .Include(t => t.ReceiverAccount).ThenInclude(a => a!.User)
             .ToListAsync();
     }
 
@@ -38,7 +38,7 @@ public sealed class TransactionRepository : GenericRepository<Transaction>, ITra
            .OrderByDescending(t => t.CreatedAt)
            .Skip((page - 1) * pageSize)
            .Take(pageSize)
-           .Include(t => t.SenderAccount)       // Bana kim para gönderdi? O bilgiyi getir
+           .Include(t => t.SenderAccount).ThenInclude(a => a!.User)         // Bana kim para gönderdi? O bilgiyi getir
            .ToListAsync();
     }
 
@@ -49,7 +49,7 @@ public sealed class TransactionRepository : GenericRepository<Transaction>, ITra
           .OrderByDescending(t => t.CreatedAt) // En yeniler en üstte
           .Skip((page - 1) * pageSize)         // Sayfalama (Pagination) atlaması
           .Take(pageSize)                      // Sadece istenen sayfa kadarını getir
-          .Include(t => t.ReceiverAccount)     // Ben kime para gönderdim? O bilgiyi getir
+          .Include(t => t.ReceiverAccount).ThenInclude(a => a!.User)     // Ben kime para gönderdim? O bilgiyi getir
           .ToListAsync();
     }
 }

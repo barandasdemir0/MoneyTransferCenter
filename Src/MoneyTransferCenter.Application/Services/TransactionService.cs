@@ -1,7 +1,10 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Mapster;
+using Microsoft.Extensions.Logging;
 using MoneyTransferCenter.Application.Dtos.Transaction;
 using MoneyTransferCenter.Application.Interfaces;
 using MoneyTransferCenter.Domain.Entities;
+using MoneyTransferCenter.Domain.Enums;
+using MoneyTransferCenter.Domain.Exceptions;
 using MoneyTransferCenter.Domain.Interfaces;
 using MoneyTransferCenter.Domain.Interfaces.Repositories;
 using System.Text.Json;
@@ -97,6 +100,31 @@ public sealed class TransactionService : ITransactionService
 
 
 
+
+    }
+
+    public async Task<List<TransactionHistoryItemResponseDto>> GetHistoryAsync(Guid userId, TransactionHistoryRequestDto request)
+    {
+
+        var account = await _accountRepository.GetByUserIdAsync(userId)
+            ?? throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
+ 
+        var transactions = request.Filter switch
+        {
+            TransactionHistoryFilter.Sent => await _transactionRepository.GetSentByAccountIdAsync(
+                              account.Id, request.Page, request.PageSize),
+            TransactionHistoryFilter.Received => await _transactionRepository.GetReceivedByAccountIdAsync(
+                              account.Id, request.Page, request.PageSize),
+            _ => await _transactionRepository.GetAllByAccountIdAsync(
+                              account.Id, request.Page, request.PageSize)
+        };
+
+        _logger.LogInformation(
+            "İşlem geçmişi görüntülendi. UserId: {UserId}, Filter: {Filter}",
+            userId,
+            request.Filter);
+
+        return transactions.Adapt<List<TransactionHistoryItemResponseDto>>();
 
     }
 

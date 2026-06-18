@@ -33,4 +33,12 @@ public class TransactionController : ControllerBase
         TransferResponseDto response = await _transactionService.TransferAsync(userId, request);
         return Ok(response);
     }
+
+    [HttpGet("history")]
+    public async Task<IActionResult> GetHistory([FromQuery] TransactionHistoryRequestDto request)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var result = await _transactionService.GetHistoryAsync(userId, request);
+        return Ok(result);
+    }
 }
