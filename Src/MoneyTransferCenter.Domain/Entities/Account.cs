@@ -102,6 +102,7 @@ public class Account : BaseEntity
         PostalCode = postalCode;
         TelephoneNumber = telephoneNumber;
     }
+
     public bool IsProfileComplete()
     {
         return string.IsNullOrEmpty(Address) == false

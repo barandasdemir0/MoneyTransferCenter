@@ -34,6 +34,8 @@ public sealed class TransactionService : ITransactionService
         _transactionRepository = transactionRepository;
     }
 
+
+    //para yükleme işlemi
     public async Task<DepositResponseDto> DepositAsync(Guid userId, DepositRequestDto request)
     {
         try
@@ -66,11 +68,13 @@ public sealed class TransactionService : ITransactionService
                 OccurredAt = DateTimeOffset.UtcNow
             });
 
+
+            // Outbox mesajını ekle
             await _outboxMessageRepository.AddAsync(OutboxMessage.Create(OutboxEventTypes.DepositCompleted, payload));
             await _unitOfWork.CommitTransactionAsync();
 
-         
 
+            // İşlem başarılı, audit kaydı oluştur
             return new DepositResponseDto(
                 AccountId: account.Id,
                 IBAN: account.IBAN,
@@ -101,11 +105,17 @@ public sealed class TransactionService : ITransactionService
 
     }
 
+    //işlem geçmişi
     public async Task<List<TransactionHistoryItemResponseDto>> GetHistoryAsync(Guid userId, TransactionHistoryRequestDto request)
     {
 
-        var account = await _accountRepository.GetByUserIdAsync(userId)
-            ?? throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
+        Account? account = await _accountRepository.GetByUserIdAsync(userId);
+
+        if (account == null)
+        {
+            throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
+        }
+
  
         var transactions = request.Filter switch
         {
@@ -126,6 +136,8 @@ public sealed class TransactionService : ITransactionService
 
     }
 
+
+    //para transfer işlemi
     public async Task<TransferResponseDto> TransferAsync(Guid userId, TransferRequestDto request)
     {
         Account? senderAccount = null;
@@ -168,13 +180,14 @@ public sealed class TransactionService : ITransactionService
             // DDD burada çalışır
             senderAccount.Withdraw(request.Amount);
             receiverAccount.Deposit(request.Amount);
+            // Transfer işlemi başarılı, transaction'ı Completed olarak işaretle
             transaction.MarkAsCompleted();
             await _transactionRepository.AddAsync(transaction);
             _accountRepository.Update(senderAccount);
             _accountRepository.Update(receiverAccount);
 
             // Outbox kaydı (AYNI MSSQL transaction içinde)
-            // → MongoDB çökse bile bu kayıt MSSQL'de durur, BackgroundService sonra işler
+            // MongoDB çökse bile bu kayıt MSSQL'de durur, BackgroundService sonra işler
             string payload = JsonSerializer.Serialize(new
             {
                 TransactionId = transaction.Id,
@@ -195,6 +208,7 @@ public sealed class TransactionService : ITransactionService
            
 
             _logger.LogInformation("Transfer tamamlandı. Referans:{Ref}", transaction.ReferenceNumber);
+            // İşlem başarılı, audit kaydı oluştur
             return new TransferResponseDto(
                 ReferenceNumber: transaction.ReferenceNumber,
                 SenderIBAN: senderAccount.IBAN,
@@ -222,6 +236,8 @@ public sealed class TransactionService : ITransactionService
         }
     }
 
+
+    //para çekme işlemi
     public async Task<WithdrawResponseDto> WithdrawAsync(Guid userId, WithdrawRequestDto request)
     {
         try
@@ -239,7 +255,8 @@ public sealed class TransactionService : ITransactionService
             account.Withdraw(request.Amount);
 
             _accountRepository.Update(account);
-           
+
+            // Outbox mesajını oluştur ve kaydet
             string payload = JsonSerializer.Serialize(new
             {
                 AccountId = account.Id,
