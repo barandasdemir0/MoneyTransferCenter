@@ -21,8 +21,9 @@ public class ReqAndResActivityBodyMiddleware : IMiddleware
 
         await using var responseBodyMemoryStream = recyclamemoryStreamManager.GetStream();
         context.Response.Body = responseBodyMemoryStream;
-
-        await next(context);
+        try
+        {
+            await next(context);
 
         responseBodyMemoryStream.Position = 0;
 
@@ -35,6 +36,12 @@ public class ReqAndResActivityBodyMiddleware : IMiddleware
         context.Response.Body.Position = 0;
 
         await responseBodyMemoryStream.CopyToAsync(orgResponse);
+        }
+        finally
+        {
+
+            context.Response.Body = orgResponse;
+        }
     }
 
     private static async Task AddReqBodyAsync(HttpContext context)
