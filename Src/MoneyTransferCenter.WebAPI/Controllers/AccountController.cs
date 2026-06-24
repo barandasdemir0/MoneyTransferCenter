@@ -1,11 +1,14 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MoneyTransferCenter.Application.Dtos.Account;
 using MoneyTransferCenter.Application.Interfaces;
+using MoneyTransferCenter.Domain.Constants;
 using System.Security.Claims;
 
 namespace MoneyTransferCenter.WebAPI.Controllers;
 
+[EnableRateLimiting(RateLimitPolicies.Standard)]
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]

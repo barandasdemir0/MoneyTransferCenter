@@ -24,6 +24,9 @@ try
     builder.Services.AddApplicationServices();
     // WebAPI'ye özel servisler
     builder.Services.AddWebApiServices(builder.Configuration);
+    //rate limit yapılandırması
+    builder.Services.AddRateLimitConfig();
+
     //  Kimlik Doğrulama 
     builder.Services.AddIdentityConfig(builder.Configuration);
     builder.Services.AddJaegerOpenTelemetry(builder.Configuration);
@@ -39,11 +42,14 @@ try
         app.MapOpenApi();
         app.MapScalarApiReference();
     }
-    app.MapControllers();
     app.UseSerilogRequestLogging();
 
     app.UseAuthentication();
     app.UseAuthorization();
+    app.UseMiddleware<IPBlockMiddleware>();
+
+    app.UseRateLimiter();
+    
     app.MapControllers();
 
     app.UseWhen(
