@@ -26,6 +26,9 @@ try
     builder.Services.AddWebApiServices(builder.Configuration);
     //rate limit yapılandırması
     builder.Services.AddRateLimitConfig();
+    //polly yapılandırması
+    builder.Services.AddResilinceConfig(builder.Configuration);
+
 
     //  Kimlik Doğrulama 
     builder.Services.AddIdentityConfig(builder.Configuration);
