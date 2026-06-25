@@ -30,9 +30,9 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
         builder.Property(t => t.FailureReason)
             .HasMaxLength(500);
 
-        builder.HasIndex(t => t.SenderAccountId);
+        builder.HasIndex(t => new { t.SenderAccountId, t.CreatedAt });
 
-        builder.HasIndex(t => t.ReceiverAccountId);
+        builder.HasIndex(t => new { t.ReceiverAccountId, t.CreatedAt });
 
         // Account (Gönderen) -> Transaction : 1'e Çok
         builder.HasOne(t => t.SenderAccount)

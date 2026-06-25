@@ -20,6 +20,7 @@ public class TransactionServiceTests
     private readonly ITransactionRepository _transactionRepositoryMock = Substitute.For<ITransactionRepository>();
     private readonly IAccountRepository _accountRepositoryMock = Substitute.For<IAccountRepository>();
     private readonly IOutboxMessageRepository _outboxMessageRepositoryMock = Substitute.For<IOutboxMessageRepository>();
+    private readonly IAccountLockService _accountLockServiceMock = Substitute.For<IAccountLockService>();
     private readonly ILogger<TransactionService> _loggerMock = Substitute.For<ILogger<TransactionService>>();
     private readonly TransactionService _sut;
 
@@ -27,7 +28,7 @@ public class TransactionServiceTests
     {
         _sut = new TransactionService(
             _unitOfWorkMock, _auditServiceMock, _loggerMock,
-            _accountRepositoryMock, _outboxMessageRepositoryMock, _transactionRepositoryMock);
+            _accountRepositoryMock, _outboxMessageRepositoryMock, _transactionRepositoryMock, _accountLockServiceMock);
     }
 
     // hesapda para yatırma işlemi için testler

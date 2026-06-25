@@ -1,4 +1,5 @@
 ﻿using Serilog;
+using Serilog.Sinks.Grafana.Loki;
 
 namespace MoneyTransferCenter.WebAPI.Extension;
 
@@ -30,6 +31,7 @@ public static class LoggingExtension
             .WriteTo.File("Logs/SystemLog-.txt", rollingInterval: RollingInterval.Day)// logları günlük olarak döndüren bir dosya hedefi ekler, böylece loglar "Logs" klasöründe "SystemLog-2024-06-01.txt" gibi dosyalara yazılır.
             .WriteTo.MongoDB(databaseUrl:mongoFullUrl,
             collectionName:"SystemLogs")
+             .WriteTo.GrafanaLoki("http://loki:3100")
             .Enrich.FromLogContext() // loglara context bilgisi ekler, böylece logların hangi istek veya işlemle ilişkili olduğunu görebiliriz.
             .CreateLogger();
         applicationBuilder.Host.UseSerilog();
