@@ -11,7 +11,10 @@ using MoneyTransferCenter.Domain.Enums;
 using MoneyTransferCenter.Domain.Exceptions;
 using MoneyTransferCenter.Domain.Interfaces;
 using MoneyTransferCenter.Domain.Interfaces.Repositories;
+using MoneyTransferCenter.Application.Telemetry;
 using System.Text.Json;
+
+
 
 namespace MoneyTransferCenter.Application.Services;
 
@@ -73,7 +76,8 @@ public sealed class TransactionService : ITransactionService
             await _outboxMessageRepository.AddAsync(OutboxMessage.Create(OutboxEventTypes.DepositCompleted, payload));
             await _unitOfWork.CommitTransactionAsync();
 
-
+            //metric başarılı para yükleme sayısını artır
+            AppMetrics.DepositCount.Add(1);
             // İşlem başarılı, audit kaydı oluştur
             return new DepositResponseDto(
                 AccountId: account.Id,
@@ -87,8 +91,9 @@ public sealed class TransactionService : ITransactionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Para yükleme başarısız. UserId: {UserId}", userId);
 
+            _logger.LogError(ex, "Para yükleme başarısız. UserId: {UserId}", userId);
+            AppMetrics.DepositFailedCount.Add(1);
             await _unitOfWork.RollbackTransactionAsync();
 
             await _auditService.LogMoneyDepositFailedAsync(
@@ -208,6 +213,9 @@ public sealed class TransactionService : ITransactionService
            
 
             _logger.LogInformation("Transfer tamamlandı. Referans:{Ref}", transaction.ReferenceNumber);
+
+            AppMetrics.TransferCount.Add(1);
+            AppMetrics.TransferAmountTotal.Add(request.Amount);
             // İşlem başarılı, audit kaydı oluştur
             return new TransferResponseDto(
                 ReferenceNumber: transaction.ReferenceNumber,
@@ -222,6 +230,7 @@ public sealed class TransactionService : ITransactionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Transfer başarısız. UserId: {UserId}", userId);
+            AppMetrics.TransferFailedCount.Add(1);
 
             await _unitOfWork.RollbackTransactionAsync();
 
@@ -269,6 +278,9 @@ public sealed class TransactionService : ITransactionService
 
             // İşlemleri MSSQL'e atomik olarak commit et
             await _unitOfWork.CommitTransactionAsync();
+
+            AppMetrics.WithdrawCount.Add(1);
+
             return new WithdrawResponseDto(
                 AccountId: account.Id,
                 IBAN: account.IBAN,
@@ -280,6 +292,7 @@ public sealed class TransactionService : ITransactionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Para çekme başarısız. UserId: {UserId}", userId);
+            AppMetrics.WithdrawFailedCount.Add(1);
             await _unitOfWork.RollbackTransactionAsync();
             await _auditService.LogMoneyWithdrawFailedAsync(
                 userId,

@@ -55,6 +55,8 @@ try
     
     app.MapControllers();
 
+    app.MapPrometheusScrapingEndpoint();
+
     app.UseWhen(
     context =>
         context.Request.Path.StartsWithSegments("/api/Transaction") ||

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
+using MoneyTransferCenter.Application.Telemetry;
 using MoneyTransferCenter.Domain.Constants;
 using System.Threading.RateLimiting;
 
@@ -87,6 +88,8 @@ public static class RateLimitingExtension
 
                 // Serilog ile logluyoruz (UYARI seviyesinde)
                 logger.LogWarning("Rate Limit Aşıldı! IP: {ClientIp}, Yol: {Path}. Ceza Puanı: {Strikes}/10", clientIp, path, strikes);
+                AppMetrics.RateLimitRejectedCount.Add(1);
+
 
 
                 // Eğer 10 defa limite takılırsa GÜVENLİK İHLALİ de ve 24 saat BANLA!
@@ -94,6 +97,8 @@ public static class RateLimitingExtension
                 {
                     cache.Set(banKey, true, TimeSpan.FromHours(24));
                     logger.LogCritical("GÜVENLİK İHLALİ! Kötü niyetli IP Adresi 24 saat banlandı: {ClientIp}", clientIp);
+                    AppMetrics.IpBannedCount.Add(1);
+
                 }
 
 

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyTransferCenter.Application.Dtos.Auth;
 using MoneyTransferCenter.Application.Interfaces;
+using MoneyTransferCenter.Application.Telemetry;
 using MoneyTransferCenter.Domain.Entities;
 using MoneyTransferCenter.Domain.Exceptions;
 
@@ -37,16 +38,21 @@ public sealed class AuthService : IAuthService
         if (user == null)
         {
             _logger.LogWarning("Kullanıcı bulunamadı: {Email}", request.Email);
+            AppMetrics.LoginFailedCount.Add(1);
             throw new DomainException("E-posta veya şifre hatalı.", "INVALID_CREDENTIALS");
+
         }
 
         bool isPasswordValid = await _userManager.CheckPasswordAsync(user, request.Password);
         if (isPasswordValid == false)
         {
             _logger.LogWarning("Şifre hatalı. UserId: {UserId}", user.Id);
+            AppMetrics.LoginFailedCount.Add(1);
             await _auditService.LogLoginFailedAsync(user, "Hatalı şifre denemesi");
             throw new DomainException("E-posta veya şifre hatalı.", "INVALID_CREDENTIALS");
+           
         }
+
         // 3) Başarılı giriş logla
         await _auditService.LogUserLoggedInAsync(user);
 
@@ -55,6 +61,7 @@ public sealed class AuthService : IAuthService
         //Token oluştur
         string token = _tokenService.GenerateToken(user);
         _logger.LogInformation("Giriş başarılı. UserId: {UserId}", user.Id);
+        AppMetrics.LoginCount.Add(1);
         return new AuthResponse
         {
             Token = token,
@@ -75,6 +82,7 @@ public sealed class AuthService : IAuthService
         if (existingUser != null)
         {
             _logger.LogWarning("Kayıt reddedildi. E-posta zaten kayıtlı: {Email}", request.Email);
+            AppMetrics.RegisterFailedCount.Add(1);
             throw new DomainException("Bu e-posta adresi zaten kayıtlı.", "EMAIL_ALREADY_EXISTS");
         }
 
@@ -82,6 +90,7 @@ public sealed class AuthService : IAuthService
         if (existingNationalId != null)
         {
             _logger.LogWarning("Kayıt reddedildi. Tc Kimlik numarası zaten kayıtlı: {NationalId}", request.NationalId);
+            AppMetrics.RegisterFailedCount.Add(1);
             throw new DomainException("Tc Kimlik numarası zaten kayıtlı.", "NATIONAL_ID_ALREADY_EXISTS");
         }
 
@@ -101,6 +110,7 @@ public sealed class AuthService : IAuthService
         {
             string errors = string.Join(", ", result.Errors.Select(e => e.Description));
             _logger.LogError("Kayıt hatası. E-posta: {Email}, Hatalar: {Errors}", request.Email, errors);
+            AppMetrics.RegisterFailedCount.Add(1);
             throw new DomainException($"Kayıt başarısız: {errors}", "REGISTRATION_FAILED");
         }
 
@@ -108,6 +118,7 @@ public sealed class AuthService : IAuthService
         {
             await _accountService.CreateAccountForUserAsync(newUser.Id);
             _logger.LogInformation("Kullanıcı oluşturuldu. UserId: {UserId}", newUser.Id);
+            AppMetrics.RegisterCount.Add(1);
             //Audit log yaz 
             await _auditService.LogUserRegisteredAsync(newUser);
         }
@@ -116,6 +127,7 @@ public sealed class AuthService : IAuthService
             // Eğer hesap açılırken hata çıkarsa, Identity'e kaydettiğimiz kullanıcıyı GERİ SİLİYORUZ.
             await _userManager.DeleteAsync(newUser);
             _logger.LogError(ex, "Banka hesabı oluşturulurken hata çıktı. Kullanıcı kaydı iptal edildi. UserId: {UserId}", newUser.Id);
+            AppMetrics.RegisterFailedCount.Add(1);
             throw new DomainException("Kayıt işlemi sırasında sistemsel bir hata oluştu. Lütfen tekrar deneyin.", "REGISTRATION_SYSTEM_ERROR");
         }
 

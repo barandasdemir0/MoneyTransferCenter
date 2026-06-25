@@ -1,4 +1,5 @@
-﻿using OpenTelemetry.Resources;
+﻿using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace MoneyTransferCenter.WebAPI.Extension;
@@ -41,7 +42,16 @@ public static class OpenTelemetryExtension
                     {
                         options.Endpoint = new Uri(jaegerEndpoint);
                     });
+            })
+            .WithMetrics(metrics =>
+            {
+                metrics
+                .AddAspNetCoreInstrumentation()// API İstekleri p50 p90 gibi değerleri alabilmek için
+                .AddRuntimeInstrumentation() // CPU, Memory gibi değerleri alabilmek için
+                .AddMeter("MoneyTransferCenter.Metrics") //metrikleri almak için
+                .AddPrometheusExporter();// Prometheus'a metrikleri göndermek için
             });
+        
 
 
 

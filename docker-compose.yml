@@ -7,9 +7,10 @@ services:
     build:
       context: .
       dockerfile: Src/MoneyTransferCenter.WebAPI/Dockerfile
+    ports:
+      - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      # appsettings.json ayarlarını eziyoruz ki Docker içindeki diğer araçlara bağlansın
       - ConnectionStrings__SqlServer=Server=db_sqlserver;Database=MoneyTransferCenterDb;User Id=sa;Password=Guc1u_Sifre.123;TrustServerCertificate=true
       - MongoDB__ConnectionString=mongodb://db_mongodb:27017
       - Jaeger__Endpoint=http://jaeger:4317
@@ -41,3 +42,26 @@ services:
     ports:
       - "16686:16686" # Arayüz portu
       - "4317:4317"   # Log toplama portu
+
+
+  # 5. PROMETHEUS — Metric Deposu
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      # API'nin nerede olduğunu Prometheus'a söyleyen ayar dosyası
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - moneytransfercenter.webapi
+
+  # 6. GRAFANA — Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus

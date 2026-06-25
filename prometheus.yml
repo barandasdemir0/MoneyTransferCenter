@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'money-transfer-api'
+    metrics_path: '/metrics'
+    static_configs:
+      # Artık Docker içinde oldukları için isimle haberleşecekler
+      # .NET 8 ve sonrasında container içi varsayılan HTTP portu 8080'dir
+      - targets: ['moneytransfercenter.webapi:8080']

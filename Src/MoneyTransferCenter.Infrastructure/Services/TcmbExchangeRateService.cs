@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using MoneyTransferCenter.Application.Dtos.ExchangeRate;
 using MoneyTransferCenter.Application.Interfaces;
+using MoneyTransferCenter.Application.Telemetry;
 using MoneyTransferCenter.Domain.Constants;
 using System.Globalization;
 using System.Xml.Linq;
@@ -42,7 +43,7 @@ public sealed class TcmbExchangeRateService : IExchangeRateService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "TCMB servisine ulaşılamadı. Fallback devreye giriyor...");
-
+            AppMetrics.TcmbFallbackCount.Add(1);
             // Veriyi doğrudan Cache'den çek
             var cachedRates = _cache.Get<List<ExchangeRateDto>>(CacheKey);
             // Eğer null değilse
@@ -53,7 +54,10 @@ public sealed class TcmbExchangeRateService : IExchangeRateService
             }
             // Cache'te de veri yoksa
             _logger.LogError("TCMB servisine ulaşılamadı ve cache'te yedek veri bulunamadı!");
+            
+
             throw new Exception("Döviz kurları şu anda alınamıyor. Lütfen daha sonra tekrar deneyin.");
+
         }
     }
 

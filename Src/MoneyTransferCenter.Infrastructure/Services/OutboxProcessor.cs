@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using MoneyTransferCenter.Application.Telemetry;
 using MoneyTransferCenter.Domain.Entities;
 using MoneyTransferCenter.Domain.Interfaces;
 using MoneyTransferCenter.Domain.Interfaces.Repositories;
@@ -98,11 +99,14 @@ public sealed class OutboxProcessor(IServiceScopeFactory scopeFactory,ILogger<Ou
                     });
 
                     msg.MarkAsProcessed();
+                    AppMetrics.OutboxProcessedCount.Add(1);
                 }
                 catch (Exception ex)
                 {
                     msg.RecordFailure(ex.Message);
                     logger.LogError(ex, "Outbox işlenemedi. Id: {Id}", msg.Id);
+                    AppMetrics.OutboxFailedCount.Add(1);
+
                 }
             }
 
