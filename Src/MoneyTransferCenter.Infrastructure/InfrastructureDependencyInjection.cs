@@ -34,7 +34,12 @@ public static class InfrastructureDependencyInjection
 
 
         services.AddScoped<IIbanGenerator, IbanGenerator>(); 
-        services.AddScoped<ITokenService, TokenService>();   
+        services.AddScoped<ITokenService, TokenService>();
+
+        //addsingleton olmasının sebebi, AccountLockService sınıfının uygulama boyunca tek bir örneğinin kullanılmasını sağlamaktır. Bu, aynı anda birden fazla iş parçacığının aynı hesap üzerinde işlem yapmasını önlemek için gerekli olan kilit yönetimini merkezi bir şekilde sağlar.
+        services.AddSingleton<IAccountLockService, AccountLockService>();
+
+        // addhosted olmasının sebebi , OutboxProcessor sınıfının arka planda sürekli olarak çalışmasını sağlamaktır. Bu, Outbox mesajlarını işlemek için bir arka plan hizmeti olarak çalışmasını sağlar.
         services.AddHostedService<OutboxProcessor>();  
         
         return services;

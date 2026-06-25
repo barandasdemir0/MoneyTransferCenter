@@ -36,7 +36,7 @@ public static class RateLimitingExtension
                         Window = TimeSpan.FromMinutes(1), // 1 dk içerisinde
                         SegmentsPerWindow = 2, // 1 dk'yi 2 parçaya bölüyoruz, her parça 30 sn olacak
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst, // kuyrukta bekleyen istekler eski olan önce işlenecek
-                        QueueLimit = 0 //limit aşılırsa 429 dönecek, kuyrukta bekletmeyecek
+                        QueueLimit = 100 //limit aşılırsa 429 dönecek, kuyrukta bekletmeyecek limit aşılmazsa kullanıcıyı bekletirken loading ekranı dönecek
                     }
                 );
             });
@@ -53,7 +53,7 @@ public static class RateLimitingExtension
                         Window = TimeSpan.FromMinutes(1), // 1 dk içerisinde
                         SegmentsPerWindow = 2, // 1 dk'yi 2 parçaya bölüyoruz, her parça 30 sn olacak
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst, // kuyrukta bekleyen istekler eski olan önce işlenecek
-                        QueueLimit = 0 //limit aşılırsa 429 dönecek, kuyrukta bekletmeyecek
+                        QueueLimit = 100 //limit aşılırsa 429 dönecek, kuyrukta bekletmeyecek limit aşılmazsa kullanıcıyı bekletirken loading ekranı dönecek
                     }
                 );
             });

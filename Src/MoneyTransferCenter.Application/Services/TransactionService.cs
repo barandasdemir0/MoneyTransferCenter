@@ -26,8 +26,9 @@ public sealed class TransactionService : ITransactionService
     private readonly IAccountRepository _accountRepository;
     private readonly IOutboxMessageRepository _outboxMessageRepository;
     private readonly ILogger<TransactionService> _logger;
+    private readonly IAccountLockService _accountLockService;
 
-    public TransactionService(IUnitOfWork unitOfWork, IAuditService auditService, ILogger<TransactionService> logger, IAccountRepository accountRepository, IOutboxMessageRepository outboxMessageRepository, ITransactionRepository transactionRepository)
+    public TransactionService(IUnitOfWork unitOfWork, IAuditService auditService, ILogger<TransactionService> logger, IAccountRepository accountRepository, IOutboxMessageRepository outboxMessageRepository, ITransactionRepository transactionRepository, IAccountLockService accountLockService)
     {
         _unitOfWork = unitOfWork;
         _auditService = auditService;
@@ -35,75 +36,86 @@ public sealed class TransactionService : ITransactionService
         _accountRepository = accountRepository;
         _outboxMessageRepository = outboxMessageRepository;
         _transactionRepository = transactionRepository;
+        _accountLockService = accountLockService;
     }
 
 
     //para yükleme işlemi
     public async Task<DepositResponseDto> DepositAsync(Guid userId, DepositRequestDto request)
     {
-        try
+
+        _logger.LogInformation("Para yükleme başlatıldı. UserId: {UserId}, Tutar: {Amount}", userId, request.Amount);
+        Account? account = await _accountRepository.GetByUserIdAsync(userId);
+
+        if (account == null)
         {
-            _logger.LogInformation("Para yükleme başlatıldı. UserId: {UserId}, Tutar: {Amount}", userId, request.Amount);
+            throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
+        }
 
-            Account? account = await _accountRepository.GetByUserIdAsync(userId);
+        // Bu satırdan itibaren, aynı hesaba gelen diğer tüm istekler
+        // (deposit, withdraw, transfer) bu kilit açılana kadar BURADA BEKLER.
+        using (await _accountLockService.AcquireLockAsync(account.Id))
+        {
 
-            if (account == null)
+
+            try
             {
-                throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
+
+                // "Bellekteki eski veriyi bırak, git veritabanındaki en güncel hesabı getir." kilitli olduğu için ne olursa olsun başka bir thread bu hesabı değiştiremez. Bu yüzden güvenle tekrar alabiliriz.
+                account = await _accountRepository.GetByUserIdAsync(userId);
+
+                await _unitOfWork.BeginTransactionAsync();
+
+
+                // DDD ile para yükle 
+                account!.Deposit(request.Amount);
+
+                // Hesabı güncelle ve kaydet
+                _accountRepository.Update(account);
+
+                // Outbox mesajını oluştur ve kaydet
+                string payload = JsonSerializer.Serialize(new
+                {
+                    AccountId = account.Id,
+                    account.IBAN,
+                    request.Amount,
+                    NewBalance = account.Balance,
+                    OccurredAt = DateTimeOffset.UtcNow
+                });
+
+
+                // Outbox mesajını ekle
+                await _outboxMessageRepository.AddAsync(OutboxMessage.Create(OutboxEventTypes.DepositCompleted, payload));
+                await _unitOfWork.CommitTransactionAsync();
+
+                //metric başarılı para yükleme sayısını artır
+                AppMetrics.DepositCount.Add(1);
+                // İşlem başarılı, audit kaydı oluştur
+                return new DepositResponseDto(
+                    AccountId: account.Id,
+                    IBAN: account.IBAN,
+                    NewBalance: account.Balance,
+                    DepositedAmount: request.Amount,
+                    TransactionDate: DateTimeOffset.UtcNow
+
+
+                );
             }
-
-            await _unitOfWork.BeginTransactionAsync();
-
-
-            // DDD ile para yükle 
-            account.Deposit(request.Amount);
-
-            // Hesabı güncelle ve kaydet
-            _accountRepository.Update(account);
-
-            // Outbox mesajını oluştur ve kaydet
-            string payload = JsonSerializer.Serialize(new
+            catch (Exception ex)
             {
-                AccountId = account.Id,
-                account.IBAN,
-                request.Amount,
-                NewBalance = account.Balance,
-                OccurredAt = DateTimeOffset.UtcNow
-            });
 
+                _logger.LogError(ex, "Para yükleme başarısız. UserId: {UserId}", userId);
+                AppMetrics.DepositFailedCount.Add(1);
+                await _unitOfWork.RollbackTransactionAsync();
 
-            // Outbox mesajını ekle
-            await _outboxMessageRepository.AddAsync(OutboxMessage.Create(OutboxEventTypes.DepositCompleted, payload));
-            await _unitOfWork.CommitTransactionAsync();
+                await _auditService.LogMoneyDepositFailedAsync(
+                    userId,
+                    request.Amount,
+                    ex.Message);
 
-            //metric başarılı para yükleme sayısını artır
-            AppMetrics.DepositCount.Add(1);
-            // İşlem başarılı, audit kaydı oluştur
-            return new DepositResponseDto(
-                AccountId: account.Id,
-                IBAN: account.IBAN,
-                NewBalance: account.Balance,
-                DepositedAmount: request.Amount,
-                TransactionDate: DateTimeOffset.UtcNow
-
-
-            );
+                throw;
+            }
         }
-        catch (Exception ex)
-        {
-
-            _logger.LogError(ex, "Para yükleme başarısız. UserId: {UserId}", userId);
-            AppMetrics.DepositFailedCount.Add(1);
-            await _unitOfWork.RollbackTransactionAsync();
-
-            await _auditService.LogMoneyDepositFailedAsync(
-                userId,
-                request.Amount,
-                ex.Message);
-
-            throw;
-        }
-
 
 
 
@@ -121,7 +133,7 @@ public sealed class TransactionService : ITransactionService
             throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
         }
 
- 
+
         var transactions = request.Filter switch
         {
             TransactionHistoryFilter.Sent => await _transactionRepository.GetSentByAccountIdAsync(
@@ -146,159 +158,196 @@ public sealed class TransactionService : ITransactionService
     public async Task<TransferResponseDto> TransferAsync(Guid userId, TransferRequestDto request)
     {
         Account? senderAccount = null;
-        try
+        _logger.LogInformation("Transfer başlatıldı. UserId: {UserId}, Alıcı IBAN: {IBAN}, Tutar: {Amount}", userId, request.ReceiverIBAN, request.Amount);
+
+        // Gönderenin hesabını bul
+        senderAccount = await _accountRepository.GetByUserIdAsync(userId);
+        if (senderAccount == null)
         {
-            _logger.LogInformation("Transfer başlatıldı. UserId: {UserId}, Alıcı IBAN: {IBAN}, Tutar: {Amount}", userId, request.ReceiverIBAN, request.Amount);
+            throw new DomainException("Gönderen hesabı bulunamadı.", "SENDER_NOT_FOUND");
 
-            // Gönderenin hesabını bul
-            senderAccount = await _accountRepository.GetByUserIdAsync(userId);
-            if (senderAccount == null)
-            {
-                throw new DomainException("Gönderen hesabı bulunamadı.", "SENDER_NOT_FOUND");
-
-            }
-
-            // Alıcının hesabını bul
-            Account? receiverAccount = await _accountRepository.GetByIbanAsync(request.ReceiverIBAN);
-            if (receiverAccount == null)
-            {
-                throw new DomainException("Alıcı IBAN bulunamadı.", "RECEIVER_NOT_FOUND");
-            }
-
-            // Kendine transfer engeli
-            if (senderAccount.Id == receiverAccount.Id)
-            {
-                throw new DomainException("Kendi hesabınıza transfer yapamazsınız.", "SELF_TRANSFER_ERROR");
-            }
-
-            // Transfer kaydı oluştur (henüz Pending)
-            Transaction transaction = Transaction.Create(
-                senderAccountId: senderAccount.Id,
-                receiverAccountId: receiverAccount.Id,
-                amount: request.Amount,
-                description: request.Description
-            );
-
-            await _unitOfWork.BeginTransactionAsync();
-
-
-            // DDD burada çalışır
-            senderAccount.Withdraw(request.Amount);
-            receiverAccount.Deposit(request.Amount);
-            // Transfer işlemi başarılı, transaction'ı Completed olarak işaretle
-            transaction.MarkAsCompleted();
-            await _transactionRepository.AddAsync(transaction);
-            _accountRepository.Update(senderAccount);
-            _accountRepository.Update(receiverAccount);
-
-            // Outbox kaydı (AYNI MSSQL transaction içinde)
-            // MongoDB çökse bile bu kayıt MSSQL'de durur, BackgroundService sonra işler
-            string payload = JsonSerializer.Serialize(new
-            {
-                TransactionId = transaction.Id,
-                transaction.ReferenceNumber,
-                SenderAccountId = senderAccount.Id,
-                SenderIBAN = senderAccount.IBAN,
-                ReceiverAccountId = receiverAccount.Id,
-                ReceiverIBAN = receiverAccount.IBAN,
-                request.Amount,
-                request.Description,
-                OccurredAt = DateTimeOffset.UtcNow
-            });
-            await _outboxMessageRepository.AddAsync(OutboxMessage.Create(OutboxEventTypes.TransferCompleted, payload));
-
-            // Hepsini atomik olarak commit et
-            await _unitOfWork.CommitTransactionAsync();
-            _logger.LogInformation("Transfer audit yazılacak. UserId: {UserId}", userId);
-           
-
-            _logger.LogInformation("Transfer tamamlandı. Referans:{Ref}", transaction.ReferenceNumber);
-
-            AppMetrics.TransferCount.Add(1);
-            AppMetrics.TransferAmountTotal.Add(request.Amount);
-            // İşlem başarılı, audit kaydı oluştur
-            return new TransferResponseDto(
-                ReferenceNumber: transaction.ReferenceNumber,
-                SenderIBAN: senderAccount.IBAN,
-                ReceiverIBAN: receiverAccount.IBAN,
-                Amount: request.Amount,
-                Description: request.Description,
-                Status: "Completed",
-                TransactionDate: DateTimeOffset.UtcNow
-            );
         }
-        catch (Exception ex)
+
+        // Alıcının hesabını bul
+        Account? receiverAccount = await _accountRepository.GetByIbanAsync(request.ReceiverIBAN);
+        if (receiverAccount == null)
         {
-            _logger.LogError(ex, "Transfer başarısız. UserId: {UserId}", userId);
-            AppMetrics.TransferFailedCount.Add(1);
-
-            await _unitOfWork.RollbackTransactionAsync();
-
-            await _auditService.LogMoneyTransferFailedAsync(
-                userId,
-                senderAccount?.IBAN,
-                request.ReceiverIBAN,
-                request.Amount,
-                ex.Message);
-
-            throw;
+            throw new DomainException("Alıcı IBAN bulunamadı.", "RECEIVER_NOT_FOUND");
         }
+
+        // Kendine transfer engeli
+        if (senderAccount.Id == receiverAccount.Id)
+        {
+            throw new DomainException("Kendi hesabınıza transfer yapamazsınız.", "SELF_TRANSFER_ERROR");
+        }
+
+
+        // AccountId'leri küçükten büyüğe sıralayarak kilitleriz.
+        // Böylece A→B ve B→A transferlerinde her iki thread da önce
+        // küçük ID'li hesabı kilitler, sonra büyük olanı. Çakışma olmaz!
+        Guid firstLockId, secondLockId;
+        if (senderAccount.Id.CompareTo(receiverAccount.Id) < 0)
+        {
+            // Gönderenin ID'si daha küçük → Önce göndereni, sonra alıcıyı kilitle
+            firstLockId = senderAccount.Id;
+            secondLockId = receiverAccount.Id;
+        }
+        else
+        {
+            // Alıcının ID'si daha küçük → Önce alıcıyı, sonra göndereni kilitle
+            firstLockId = receiverAccount.Id;
+            secondLockId = senderAccount.Id;
+        }
+
+        // Her iki hesabı da kilitle
+        using (await _accountLockService.AcquireLockAsync(firstLockId))
+        // Bu satırdan itibaren, kilitlenen hesaplar üzerinde başka bir işlem yapılmasını engelleriz.
+        using (await _accountLockService.AcquireLockAsync(secondLockId))
+        {
+            try
+            {
+                // Gönderenin hesabını tekrar al, çünkü kilit açılana kadar başka bir işlem hesabı değiştirmiş olabilir
+                senderAccount = await _accountRepository.GetByUserIdAsync(userId);
+                // Alıcının hesabını tekrar al, çünkü kilit açılana kadar başka bir işlem hesabı değiştirmiş olabilir
+                receiverAccount = await _accountRepository.GetByIbanAsync(request.ReceiverIBAN);
+
+
+                // Transfer kaydı oluştur (henüz Pending)
+                Transaction transaction = Transaction.Create(
+                    senderAccountId: senderAccount!.Id,
+                    receiverAccountId: receiverAccount!.Id,
+                    amount: request.Amount,
+                    description: request.Description
+                );
+
+                await _unitOfWork.BeginTransactionAsync();
+
+
+                // DDD burada çalışır
+                senderAccount.Withdraw(request.Amount);
+                receiverAccount.Deposit(request.Amount);
+                // Transfer işlemi başarılı, transaction'ı Completed olarak işaretle
+                transaction.MarkAsCompleted();
+                await _transactionRepository.AddAsync(transaction);
+                _accountRepository.Update(senderAccount);
+                _accountRepository.Update(receiverAccount);
+
+                // Outbox kaydı (AYNI MSSQL transaction içinde)
+                // MongoDB çökse bile bu kayıt MSSQL'de durur, BackgroundService sonra işler
+                string payload = JsonSerializer.Serialize(new
+                {
+                    TransactionId = transaction.Id,
+                    transaction.ReferenceNumber,
+                    SenderAccountId = senderAccount.Id,
+                    SenderIBAN = senderAccount.IBAN,
+                    ReceiverAccountId = receiverAccount.Id,
+                    ReceiverIBAN = receiverAccount.IBAN,
+                    request.Amount,
+                    request.Description,
+                    OccurredAt = DateTimeOffset.UtcNow
+                });
+                await _outboxMessageRepository.AddAsync(OutboxMessage.Create(OutboxEventTypes.TransferCompleted, payload));
+
+                // Hepsini atomik olarak commit et
+                await _unitOfWork.CommitTransactionAsync();
+                _logger.LogInformation("Transfer audit yazılacak. UserId: {UserId}", userId);
+
+
+                _logger.LogInformation("Transfer tamamlandı. Referans:{Ref}", transaction.ReferenceNumber);
+
+                AppMetrics.TransferCount.Add(1);
+                AppMetrics.TransferAmountTotal.Add(request.Amount);
+                // İşlem başarılı, audit kaydı oluştur
+                return new TransferResponseDto(
+                    ReferenceNumber: transaction.ReferenceNumber,
+                    SenderIBAN: senderAccount.IBAN,
+                    ReceiverIBAN: receiverAccount.IBAN,
+                    Amount: request.Amount,
+                    Description: request.Description,
+                    Status: "Completed",
+                    TransactionDate: DateTimeOffset.UtcNow
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Transfer başarısız. UserId: {UserId}", userId);
+                AppMetrics.TransferFailedCount.Add(1);
+
+                await _unitOfWork.RollbackTransactionAsync();
+
+                await _auditService.LogMoneyTransferFailedAsync(
+                    userId,
+                    senderAccount?.IBAN,
+                    request.ReceiverIBAN,
+                    request.Amount,
+                    ex.Message);
+
+                throw;
+            }
+        }
+
+
     }
 
 
     //para çekme işlemi
     public async Task<WithdrawResponseDto> WithdrawAsync(Guid userId, WithdrawRequestDto request)
     {
-        try
+        _logger.LogInformation("Para çekme başlatıldı. UserId: {UserId}, Tutar: {Amount}", userId, request.Amount);
+
+        Account? account = await _accountRepository.GetByUserIdAsync(userId);
+        if (account == null)
         {
-            _logger.LogInformation("Para çekme başlatıldı. UserId: {UserId}, Tutar: {Amount}", userId, request.Amount);
-
-            Account? account = await _accountRepository.GetByUserIdAsync(userId);
-            if (account == null)
-            {
-                throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
-            }
-
-            await _unitOfWork.BeginTransactionAsync();
-            // DDD ile para çek 
-            account.Withdraw(request.Amount);
-
-            _accountRepository.Update(account);
-
-            // Outbox mesajını oluştur ve kaydet
-            string payload = JsonSerializer.Serialize(new
-            {
-                AccountId = account.Id,
-                account.IBAN,
-                request.Amount,
-                NewBalance = account.Balance,
-                OccurredAt = DateTimeOffset.UtcNow
-            });
-            await _outboxMessageRepository.AddAsync(OutboxMessage.Create(OutboxEventTypes.WithdrawCompleted, payload));
-
-            // İşlemleri MSSQL'e atomik olarak commit et
-            await _unitOfWork.CommitTransactionAsync();
-
-            AppMetrics.WithdrawCount.Add(1);
-
-            return new WithdrawResponseDto(
-                AccountId: account.Id,
-                IBAN: account.IBAN,
-                NewBalance: account.Balance,
-                WithdrawnAmount: request.Amount,
-                TransactionDate: DateTimeOffset.UtcNow
-            );
+            throw new DomainException("Hesap bulunamadı.", "ACCOUNT_NOT_FOUND");
         }
-        catch (Exception ex)
+
+        using (await _accountLockService.AcquireLockAsync(account.Id))
         {
-            _logger.LogError(ex, "Para çekme başarısız. UserId: {UserId}", userId);
-            AppMetrics.WithdrawFailedCount.Add(1);
-            await _unitOfWork.RollbackTransactionAsync();
-            await _auditService.LogMoneyWithdrawFailedAsync(
-                userId,
-                request.Amount,
-                ex.Message);
-            throw;
+            try
+            {
+                account = await _accountRepository.GetByUserIdAsync(userId);
+
+                await _unitOfWork.BeginTransactionAsync();
+                // DDD ile para çek 
+                account!.Withdraw(request.Amount);
+
+                _accountRepository.Update(account);
+
+                // Outbox mesajını oluştur ve kaydet
+                string payload = JsonSerializer.Serialize(new
+                {
+                    AccountId = account.Id,
+                    account.IBAN,
+                    request.Amount,
+                    NewBalance = account.Balance,
+                    OccurredAt = DateTimeOffset.UtcNow
+                });
+                await _outboxMessageRepository.AddAsync(OutboxMessage.Create(OutboxEventTypes.WithdrawCompleted, payload));
+
+                // İşlemleri MSSQL'e atomik olarak commit et
+                await _unitOfWork.CommitTransactionAsync();
+
+                AppMetrics.WithdrawCount.Add(1);
+
+                return new WithdrawResponseDto(
+                    AccountId: account.Id,
+                    IBAN: account.IBAN,
+                    NewBalance: account.Balance,
+                    WithdrawnAmount: request.Amount,
+                    TransactionDate: DateTimeOffset.UtcNow
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Para çekme başarısız. UserId: {UserId}", userId);
+                AppMetrics.WithdrawFailedCount.Add(1);
+                await _unitOfWork.RollbackTransactionAsync();
+                await _auditService.LogMoneyWithdrawFailedAsync(
+                    userId,
+                    request.Amount,
+                    ex.Message);
+                throw;
+            }
         }
     }
 }

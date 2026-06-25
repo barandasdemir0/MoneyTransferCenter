@@ -22,8 +22,8 @@ public class GlobalExceptionHandler : IExceptionHandler
 
         //HTTP durum kodunu 500 (Sunucu Hatası) olarak ayarla
         int statusCode = (int)HttpStatusCode.InternalServerError;
-        string message = exception.Message;
-        string errorCode = string.Empty;
+        string message = "Sunucu tarafında beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin.";
+        string errorCode = "INTERNAL_SERVER_ERROR";
 
         if (exception is DomainException domainEx)
         {
@@ -37,13 +37,21 @@ public class GlobalExceptionHandler : IExceptionHandler
             message = "Bu işlem için yetkiniz bulunmamaktadır.";
         }
 
+
+        else if (exception is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            statusCode = StatusCodes.Status409Conflict; // 409 Çakışma
+            message = "Bu hesap üzerinde aynı anda başka bir işlem gerçekleştiği için güvenlik amacıyla işleminiz durduruldu. Lütfen tekrar deneyin.";
+            errorCode = "CONCURRENCY_CONFLICT";
+        }
         httpContext.Response.StatusCode = statusCode;
         await httpContext.Response.WriteAsJsonAsync(new
         {
             StatusCode = statusCode,
             ErrorCode = errorCode,
-            exception.Message
+            Message = message 
         }, cancellationToken);
+
 
 
         return true;
