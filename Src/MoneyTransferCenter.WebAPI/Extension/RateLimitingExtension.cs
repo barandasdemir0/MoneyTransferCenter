@@ -1,13 +1,14 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using MoneyTransferCenter.Application.Telemetry;
 using MoneyTransferCenter.Domain.Constants;
+using MoneyTransferCenter.Domain.Entities;
 using System.Threading.RateLimiting;
 
 namespace MoneyTransferCenter.WebAPI.Extension;
 
 public static class RateLimitingExtension
 {
-    public static IServiceCollection AddRateLimitConfig(this IServiceCollection services)
+    public static IServiceCollection AddRateLimitConfig(this IServiceCollection services,IConfiguration configuration)
     {
 
         services.AddMemoryCache(); //memory cache ekliyoruz blaclist için
@@ -24,36 +25,44 @@ public static class RateLimitingExtension
 
             options.AddPolicy(RateLimitPolicies.Standard, context =>
             {
+
+                // Standard policy konfigürasyonunu yakala
+                var standardSettings = configuration.GetSection("RateLimitSettings:Standard").Get<RateLimitPolicySettings>();
+
                 //isteği yapan ip adresini al
                 var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
+                //sliding kullanmamızın sebebi , 1 dk içerisinde 50 istek hakkı var, 1 dk dolmadan 30 sn sonra tekrar istek atarsa 1 dk dolmadan tekrar istek atabilir, sliding window mantığı ile çalışıyor
                 return RateLimitPartition.GetSlidingWindowLimiter
                 (
                     partitionKey:clientIp,
                     factory:partition => new SlidingWindowRateLimiterOptions
                     {
-                        PermitLimit = 50, // bir ıp max 50 istek
-                        Window = TimeSpan.FromMinutes(1), // 1 dk içerisinde
-                        SegmentsPerWindow = 2, // 1 dk'yi 2 parçaya bölüyoruz, her parça 30 sn olacak
+                        PermitLimit = standardSettings!.PermitLimit, // bir ıp max 50 istek
+                        Window = TimeSpan.FromMinutes(standardSettings.WindowMinutes), // 1 dk içerisinde
+                        SegmentsPerWindow = standardSettings.SegmentsPerWindow, // 1 dk'yi 2 parçaya bölüyoruz, her parça 30 sn olacak
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst, // kuyrukta bekleyen istekler eski olan önce işlenecek
-                        QueueLimit = 100 //limit aşılırsa 429 dönecek, kuyrukta bekletmeyecek limit aşılmazsa kullanıcıyı bekletirken loading ekranı dönecek
+                        QueueLimit = standardSettings.QueueLimit //limit aşılırsa 429 dönecek, kuyrukta bekletmeyecek limit aşılmazsa kullanıcıyı bekletirken loading ekranı dönecek
                     }
                 );
             });
 
             options.AddPolicy(RateLimitPolicies.Strict, context =>
             {
+
+                // Strict policy konfigürasyonunu yakala
+                var strictSettings = configuration.GetSection("RateLimitSettings:Strict").Get<RateLimitPolicySettings>();
                 var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
                 return RateLimitPartition.GetSlidingWindowLimiter
                 (
                     partitionKey: clientIp,
                     factory: partition => new SlidingWindowRateLimiterOptions
                     {
-                        PermitLimit = 5, 
-                        Window = TimeSpan.FromMinutes(1), // 1 dk içerisinde
-                        SegmentsPerWindow = 2, // 1 dk'yi 2 parçaya bölüyoruz, her parça 30 sn olacak
+                        PermitLimit = strictSettings!.PermitLimit, 
+                        Window = TimeSpan.FromMinutes(strictSettings.WindowMinutes), // 1 dk içerisinde
+                        SegmentsPerWindow = strictSettings.SegmentsPerWindow, // 1 dk'yi 2 parçaya bölüyoruz, her parça 30 sn olacak
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst, // kuyrukta bekleyen istekler eski olan önce işlenecek
-                        QueueLimit = 100 //limit aşılırsa 429 dönecek, kuyrukta bekletmeyecek limit aşılmazsa kullanıcıyı bekletirken loading ekranı dönecek
+                        QueueLimit = strictSettings.QueueLimit //limit aşılırsa 429 dönecek, kuyrukta bekletmeyecek limit aşılmazsa kullanıcıyı bekletirken loading ekranı dönecek
                     }
                 );
             });

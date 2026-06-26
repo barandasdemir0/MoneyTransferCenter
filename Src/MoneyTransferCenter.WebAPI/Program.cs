@@ -25,7 +25,7 @@ try
     // WebAPI'ye özel servisler
     builder.Services.AddWebApiServices(builder.Configuration);
     //rate limit yapılandırması
-    builder.Services.AddRateLimitConfig();
+    builder.Services.AddRateLimitConfig(builder.Configuration);
     //polly yapılandırması
     builder.Services.AddResilinceConfig(builder.Configuration);
 
